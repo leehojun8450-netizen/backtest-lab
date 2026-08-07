@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>무한매수법 시뮬레이터 — backtest-lab</title>
+<style>
+:root{
+  --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2;
+  --line:#d3d6cd; --line-2:#b7bcae;
+  --red:#9c3b32; --red-t:#f3e1de; --amber:#a47726; --amber-t:#f1e6d2;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif KR",serif;
+  --sans:-apple-system,"Segoe UI","Pretendard","Apple SD Gothic Neo","Noto Sans KR",Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Roboto Mono","D2Coding",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+    --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+    --red:#df8074; --red-t:#2c1e1c; --amber:#dbb15a; --amber-t:#2b2418; }
+}
+:root[data-theme="dark"]{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+  --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+  --red:#df8074; --red-t:#2c1e1c; --amber:#dbb15a; --amber-t:#2b2418; }
+:root[data-theme="light"]{ --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2; --line:#d3d6cd; --line-2:#b7bcae;
+  --red:#9c3b32; --red-t:#f3e1de; --amber:#a47726; --amber-t:#f1e6d2; }
+
+*{box-sizing:border-box;} html,body{margin:0;padding:0;}
+body{ background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:1120px; margin:0 auto; padding:0 20px 80px; }
+
+header.top{ border-bottom:1px solid var(--line); padding:34px 0 22px; margin-bottom:26px; }
+.eyebrow{ font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+.eyebrow::before{ content:""; width:20px; height:1px; background:var(--accent); }
+h1{ font-family:var(--serif); font-size:clamp(26px,3.4vw,36px); font-weight:600; margin:0 0 10px; }
+header.top p{ color:var(--soft); margin:0; max-width:64ch; font-size:14.5px; }
+
+.panel{ background:var(--raised); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin-bottom:22px; }
+.panel-title{ font-family:var(--mono); font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); margin-bottom:16px; }
+
+.ctrl-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:16px; }
+label.f{ display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--soft); }
+label.f .hint{ font-size:11px; color:var(--faint); }
+select,input[type="number"],input[type="date"]{
+  font-family:var(--mono); font-size:13.5px; padding:8px 10px; border:1px solid var(--line-2);
+  border-radius:7px; background:var(--paper); color:var(--ink); width:100%;
+}
+select:focus,input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+.seg{ display:flex; gap:0; border:1px solid var(--line-2); border-radius:7px; overflow:hidden; }
+.seg button{ flex:1; font-family:var(--mono); font-size:12.5px; padding:8px 4px; border:0; background:var(--paper); color:var(--soft); cursor:pointer; border-right:1px solid var(--line-2); }
+.seg button:last-child{ border-right:0; }
+.seg button[aria-pressed="true"]{ background:var(--accent); color:var(--paper); font-weight:600; }
+.seg button:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+
+.run-row{ display:flex; gap:12px; align-items:center; margin-top:20px; flex-wrap:wrap; }
+button.run{ font-family:var(--sans); font-weight:600; font-size:14.5px; padding:11px 26px; border:0; border-radius:8px; background:var(--accent); color:var(--paper); cursor:pointer; }
+button.run:hover{ background:var(--accent-2); }
+button.run:disabled{ opacity:.5; cursor:not-allowed; }
+button.run:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+.status{ font-family:var(--mono); font-size:12px; color:var(--faint); }
+.status.err{ color:var(--red); }
+
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+.kpi{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper); }
+.kpi .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); }
+.kpi .v{ font-family:var(--mono); font-size:22px; font-variant-numeric:tabular-nums; font-weight:600; margin-top:5px; }
+.kpi .s{ font-size:11.5px; color:var(--faint); margin-top:2px; }
+.v.pos{ color:var(--accent); } .v.neg{ color:var(--red); } .v.warn{ color:var(--amber); }
+
+canvas{ width:100%; display:block; border-radius:8px; }
+.chart-legend{ display:flex; gap:16px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:10px; }
+.chart-legend i{ display:inline-block; width:11px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+
+.tbl-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+table{ border-collapse:collapse; width:100%; min-width:520px; font-size:13px; }
+th,td{ padding:10px 14px; text-align:left; border-bottom:1px solid var(--line); }
+thead th{ font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); background:var(--tint); white-space:nowrap; }
+tbody tr:last-child td{ border-bottom:none; }
+td.num{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+tr.base td{ background:color-mix(in srgb,var(--tint) 55%,transparent); font-weight:600; }
+
+.note{ border:1px solid var(--line-2); border-left:3px solid var(--amber); border-radius:8px; padding:14px 18px; margin-top:18px; background:var(--raised); }
+.note .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
+.note p{ margin:0; font-size:13px; color:var(--soft); line-height:1.6; }
+.note.risk{ border-left-color:var(--red); } .note.risk .lbl{ color:var(--red); }
+
+details.assump{ margin-top:18px; border:1px solid var(--line); border-radius:8px; background:var(--raised); }
+details.assump summary{ cursor:pointer; padding:12px 18px; font-family:var(--mono); font-size:12px; color:var(--soft); }
+details.assump summary:focus-visible{ outline:2px solid var(--accent); }
+details.assump .body{ padding:0 18px 16px; font-family:var(--mono); font-size:11.5px; color:var(--faint); line-height:1.8; white-space:pre-wrap; }
+
+footer.foot{ margin-top:40px; padding-top:22px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--faint); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.hidden{ display:none !important; }
+@media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">backtest-lab · 도구 1</div>
+    <h1>무한매수법 시뮬레이터</h1>
+    <p>총 투자금을 분할해 평균단가 아래에서만 매수하고, 목표 수익률 도달 시 전량 매도하는 전략을 과거 데이터로 검증합니다. <strong>거래비용을 낙관·기본·보수 3가지로 동시에 계산</strong>해 실전 괴리를 드러냅니다.</p>
+  </header>
+
+  <section class="panel">
+    <div class="panel-title">설정</div>
+    <div class="ctrl-grid">
+      <label class="f">종목 <span class="hint" id="tickCount"></span>
+        <input type="search" id="tickSearch" placeholder="티커·종목번호·종목명으로 검색 (예: TQQQ, 005930, 반도체)"
+               style="margin-bottom:6px;width:100%;box-sizing:border-box">
+        <select id="ticker"><option value="">데이터 로딩 중…</option></select>
+      </label>
+      <label class="f">총 투자금 <span class="hint" id="curHint">USD</span>
+        <input type="text" id="capital" value="100,000" inputmode="numeric" autocomplete="off"
+               style="text-align:right">
+        <span class="hint" id="capitalEcho" style="display:block;margin-top:4px;text-align:right"></span>
+      </label>
+      <label class="f">분할 수 <span class="hint">1회 매수 = 총액 ÷ 분할수</span>
+        <div class="seg" id="splitSeg" role="group" aria-label="분할 수">
+          <button type="button" data-v="20">20</button>
+          <button type="button" data-v="40" aria-pressed="true">40</button>
+          <button type="button" data-v="60">60</button>
+          <button type="button" data-v="100">100</button>
+        </div>
+      </label>
+      <label class="f">목표 수익률 <span class="hint">평단 대비, 전량 매도</span>
+        <div class="seg" id="targetSeg" role="group" aria-label="목표 수익률">
+          <button type="button" data-v="5">5%</button>
+          <button type="button" data-v="8">8%</button>
+          <button type="button" data-v="10" aria-pressed="true">10%</button>
+          <button type="button" data-v="15">15%</button>
+        </div>
+      </label>
+      <label class="f">체결 방식 <span class="hint">보수적 검증용</span>
+        <select id="fillMode">
+          <option value="loc" selected>당일 종가 (LOC)</option>
+          <option value="next">익일 시가</option>
+        </select>
+      </label>
+      <label class="f">시작일
+        <input type="date" id="from" value="2015-01-01">
+      </label>
+      <label class="f">종료일
+        <input type="date" id="to">
+      </label>
+    </div>
+    <div class="run-row">
+      <button class="run" id="runBtn" disabled>시뮬레이션 실행</button>
+      <span class="status" id="status">데이터 준비 중…</span>
+    </div>
+  </section>
+
+  <div id="results" class="hidden">
+
+    <section class="panel">
+      <div class="panel-title">결과 요약 <span style="text-transform:none;letter-spacing:0">— 기본 비용 시나리오 기준</span></div>
+      <div class="kpi-grid" id="kpis"></div>
+      <div class="note risk" id="delistWarn" style="display:none;border-width:2px">
+        <div class="lbl">☠️ 상장폐지 종목 — 생존편향 표본</div>
+        <p id="delistText"></p>
+      </div>
+      <div class="note risk" id="taxWarn" style="display:none">
+        <div class="lbl">미반영 세금 경고</div>
+        <p id="taxWarnText"></p>
+      </div>
+      <div class="note risk" id="depletionNote" style="display:none">
+        <div class="lbl">최대 소진 회차 경고</div>
+        <p id="depletionText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">파라미터 민감도 지도 <span style="text-transform:none;letter-spacing:0">— 16개 조합 전부, 같은 종목·기간·비용</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>분할 \ 목표</th><th class="num">+5%</th><th class="num">+8%</th><th class="num">+10%</th><th class="num">+15%</th></tr></thead>
+        <tbody id="paramBody"></tbody>
+      </table></div>
+      <div class="note risk" id="paramNote">
+        <div class="lbl">이 표를 먼저 보십시오</div>
+        <p id="paramText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">몬테카를로 — 500개의 대체 역사 <span style="text-transform:none;letter-spacing:0">— 가격 경로를 다시 굴려도 이 전략은 버티는가</span></div>
+      <div class="run-row" style="margin-bottom:12px">
+        <button class="run" id="mcBtn" style="background:linear-gradient(135deg,#5C6BC0,#283593)">몬테카를로 500회 실행</button>
+        <span class="status" id="mcStatus">실행 결과가 나온 뒤 누를 수 있습니다 — 수 초 걸립니다 (백그라운드 연산)</span>
+      </div>
+      <div id="mcResults" style="display:none">
+        <div class="kpi-grid" id="mcKpis"></div>
+        <div class="note risk" id="mcNote">
+          <div class="lbl" id="mcLbl">대체 역사 분포</div>
+          <p id="mcText"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Walk-Forward 검증 <span style="text-transform:none;letter-spacing:0">— 학습구간 1위가 다음 구간에서도 통했나</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>#</th><th>학습구간</th><th>학습 1위 조합</th><th class="num">학습 성과</th>
+          <th>검증구간</th><th class="num">검증 성과</th><th class="num">검증 순위</th>
+          <th class="num">놓친 폭</th><th class="num">16조합 격차</th>
+        </tr></thead>
+        <tbody id="wfBody"></tbody>
+      </table></div>
+      <div class="note risk" id="wfNote">
+        <div class="lbl" id="wfLbl">과최적화 진단</div>
+        <p id="wfText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">시도 횟수를 감안한 신뢰도 (DSR · PBO) <span style="text-transform:none;letter-spacing:0">— 16개나 뒤졌는데, 이 성과가 운이 아니라고 할 수 있나</span></div>
+      <div class="kpi-grid" id="dsrKpis"></div>
+      <div class="note risk" id="dsrNote">
+        <div class="lbl" id="dsrLbl">다중 시도 보정</div>
+        <p id="dsrText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">전략 vs 단순 보유 <span style="text-transform:none;letter-spacing:0">— 같은 종목, 같은 기간, 같은 원금</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th></th><th class="num">최종 수익률</th><th class="num">CAGR</th>
+          <th class="num">최대 낙폭</th><th class="num">평균 투입자본</th><th class="num">누적 비용</th>
+        </tr></thead>
+        <tbody id="benchBody"></tbody>
+      </table></div>
+      <div class="note risk" id="benchNote">
+        <div class="lbl">이 표를 먼저 보십시오</div>
+        <p id="benchText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">자산 곡선 및 낙폭 <span style="text-transform:none;letter-spacing:0">— 세로축 로그 스케일</span></div>
+      <canvas id="chart" height="380"></canvas>
+      <div class="chart-legend">
+        <span><i style="background:var(--accent)"></i>무한매수법 총자산</span>
+        <span><i style="background:var(--amber)"></i>단순 보유(벤치마크)</span>
+        <span><i style="background:var(--faint)"></i>매수 소진 회차</span>
+        <span><i style="background:var(--red)"></i>전략 낙폭</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">거래비용 3시나리오 비교</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>시나리오</th><th class="num">수수료</th><th class="num">슬리피지</th>
+          <th class="num">최종 수익률</th><th class="num">CAGR</th><th class="num">MDD</th>
+          <th class="num">거래세</th><th class="num">총 비용</th>
+        </tr></thead>
+        <tbody id="scenarioBody"></tbody>
+      </table></div>
+      <div class="note" id="costNote">
+        <div class="lbl">이번 시뮬레이션에서 비용이 미친 실제 영향</div>
+        <p id="costText"></p>
+      </div>
+    </section>
+
+    <details class="assump">
+      <summary>재현 정보 — 이 결과를 만든 가정 전문 (클릭하여 펼치기)</summary>
+      <div class="body" id="assumpBody"></div>
+    </details>
+  </div>
+
+  <div class="note risk" style="margin-top:26px">
+    <div class="lbl">면책 고지</div>
+    <p>본 도구는 과거 데이터를 이용한 시뮬레이션이며 <strong>투자 권유가 아닙니다.</strong> 과거 성과는 미래 수익을 보장하지 않으며, 실제 투자는 원금 손실이 발생할 수 있습니다. 데이터는 무료 공개 소스(yfinance) 기반으로 오류가 있을 수 있고, 상장폐지 종목은 현재 유니버스에 포함되어 있지 않습니다. 세금·환전비용은 이 버전에서 미반영입니다.</p>
+  </div>
+
+  <footer class="foot">
+    <span>코다리 컴퍼니 · backtest-lab</span>
+    <span id="dataStamp"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   매도 시 부과금 — 시점에 따라 달라진다 (2026-08-04 공식출처 검증)
+   ------------------------------------------------------------
+   국내 증권거래세는 12년간 0.30% -> 0.15% -> 0.20%로 널뛰었다.
+   고정값 하나로 장기 백테스트를 돌리면 과거 구간이 통째로 왜곡되므로
+   반드시 날짜별 테이블로 관리한다.
+   근거: 증권거래세법 시행령 탄력세율(대통령령 29788·31346·33209·36001호)
+        + 농어촌특별세법 제5조(유가증권시장 0.15%)
+   ※ 실무 적용은 결제기준이라 시행일이 매매일 기준으로 며칠 앞선다.
+     아래 from은 '매도 체결일' 기준으로 보정한 날짜다.
+   ============================================================ */
+const KR_SELL_TAX_TABLE = [
+  { from: "1900-01-01", rate: 0.0030, label: "~2019.6.2" },
+  { from: "2019-06-03", rate: 0.0025, label: "2019.6.3~2020" },
+  { from: "2021-01-01", rate: 0.0023, label: "2021~2022" },
+  { from: "2023-01-01", rate: 0.0020, label: "2023" },
+  { from: "2024-01-01", rate: 0.0018, label: "2024" },
+  { from: "2024-12-27", rate: 0.0015, label: "2025" },
+  { from: "2025-12-29", rate: 0.0020, label: "2026~" },
+];
+// 미국 SEC Section 31 수수료 — 2026-04-04부터 부활(직전까지 $0)
+const US_SEC_FEE_FROM = "2026-04-04";
+const US_SEC_FEE = 0.0000206;   // $20.60/백만 = 0.00206%
+
+/* ⚠️ 2026-08-05 수정 — 종목 종류를 구분하지 않고 시장만 보고 과세하던 버그
+
+   [무엇이 틀렸나]
+     국내 상장 ETF는 개별주식과 과세 체계가 다르다. 그런데 기존 코드는
+     market === "KR" 이면 ETF든 개별주든 매도금액 전체에 증권거래세를 물렸다.
+     KODEX 200·레버리지·인버스 결과가 전부 과대 비용으로 계산됐다.
+
+   [왜 지금은 세금을 빼는가]
+     레버리지·인버스 ETF의 정확한 세후 계산에는 '과세표준기준가(과표기준가)'
+     시계열이 필요하다(과세액 = min(실매매차익, 과표기준가 증가분) × 15.4%).
+     우리에겐 그 데이터가 없다. 틀린 값을 넣느니 빼고 명시하는 편이 정직하다.
+     -> ETF는 매도 부과금 0으로 두고, 화면 가정란에 '세금 미반영'을 표기한다. */
+/* 과세 클래스 — 2026-08-05 공식 출처 검증 결과 반영
+   kr_equity     개별주식      : 매도 시 증권거래세 (증권거래세법 제2조 '주권등의 양도')
+   kr_stock_etf  국내주식형 ETF : 거래세 없음 + 매매차익 비과세
+   other_etf     기타 ETF      : 거래세 없음. 매매차익은 배당소득 15.4% 과세대상이나
+                                 과세표준 = Min(실매매차익, 과표기준가 상승분)이라
+                                 과표기준가 시계열 없이는 계산 불가 -> 미반영하고 명시한다.
+                                 (레버리지·인버스는 국내지수 기반이라도 '주식-파생형'이라
+                                  국내주식형 비과세 대상이 아니다)
+   us            미국          : 매도 시 SEC 수수료만. 양도소득세(22%)는 미반영. */
+function sellLevyFor(taxClass, dateStr){
+  if (taxClass === "kr_equity"){
+    let r = 0;
+    for (const row of KR_SELL_TAX_TABLE) if (dateStr >= row.from) r = row.rate;
+    return r;
+  }
+  if (taxClass === "us") return dateStr >= US_SEC_FEE_FROM ? US_SEC_FEE : 0;
+  return 0;                       // kr_stock_etf · other_etf -> 거래세 없음
+}
+const TAX_NOTE = {
+  kr_equity:    "개별주식 — 매도 시 증권거래세 시점별 적용. 소액주주 양도소득세는 비과세라 미반영.",
+  kr_stock_etf: "국내주식형 ETF — 증권거래세·매매차익 모두 비과세.",
+  other_etf:    "⚠️ 기타 ETF(레버리지·인버스·해외지수) — 증권거래세는 없으나 매매차익에 배당소득세 15.4%가 부과됩니다. 과세표준이 과표기준가 기준이라 데이터 없이 계산할 수 없어 미반영했습니다. 실제 세후 수익은 이보다 낮습니다.",
+  us:           "미국 — 매도 시 SEC 수수료만 반영. 양도소득세(연 250만원 공제 후 22%)·환전비용은 미반영.",
+};
+
+/* ============================================================
+   무한매수법 시뮬레이션 엔진
+   ------------------------------------------------------------
+   순수 함수로 작성 — 훗날 서버 엔진(vectorbt)으로 승격할 때
+   이 로직이 회귀 테스트의 기준이 된다. (1인실행계획서 §0)
+
+   전략 규칙
+     1. 총 투자금을 N분할. 1회 매수액 = 총액 / N
+     2. 매일 종가(LOC) 기준:
+        - 포지션 없음        -> 1회차 매수
+        - 종가 < 평균단가    -> 1회차 추가 매수 (잔여 회차 있을 때만)
+        - 종가 >= 평단*(1+T) -> 전량 매도, 사이클 종료 후 재시작
+     3. 경로 의존(path-dependent): 오늘 판단이 어제까지의 평단에 의존하므로
+        벡터화 불가 — 시간축 순차 루프가 불가피하다.
+   ============================================================ */
+function simulateInfiniteBuy(records, opts){
+  const { capital, splits, targetPct, feeRate, slipRate } = opts;
+  const market = opts.market || "US";           // 매도 부과금은 시장·날짜에 따라 달라진다
+  const taxClass = opts.taxClass || "";         // 과세 클래스 (개별주/국내주식형ETF/기타ETF/미국)
+  /* 체결 모드 (2026-08-05 추가)
+       loc  : 종가 조건 판단 -> 같은 날 종가에 체결.
+              LOC(지정가 조건부 종가주문)는 매도 목표가·매수 기준가를 전일까지 정보로
+              미리 걸 수 있으므로 이 방식이 곧 look-ahead인 것은 아니다.
+              다만 실전에서는 반대주문 부족 시 미체결될 수 있는데 그건 반영하지 않는다.
+       next : 종가 조건 판단 -> 익일 시가에 체결. 가장 보수적인 가정. */
+  const fillMode = opts.fillMode === "next" ? "next" : "loc";
+  let pending = null;                           // next 모드에서 익일로 넘긴 주문
+  const unit = capital / splits;
+  const target = 1 + targetPct / 100;
+
+  let cash = capital, shares = 0, cost = 0, used = 0;
+  let buys = 0, sells = 0, cycles = 0, totalFee = 0, maxUsed = 0;
+  let totalTax = 0;                             // 매도 부과금(거래세) 누적 — 수수료와 분리 집계
+  let deployedSum = 0;                          // 평균 투입자본 비율 계산용
+  const equity = [], usedSeries = [], dates = [];
+  const cycleLens = []; let cycleStart = 0;
+
+  for (let i = 0; i < records.length; i++){
+    const px = records[i].c;
+    if (!(px > 0)) continue;
+
+    // 익일 체결 모드 — 전날 낸 주문을 오늘 시가에 처리한다
+    if (pending){
+      const op = records[i].o > 0 ? records[i].o : px;
+      if (pending === "sell" && shares > 0){
+        const fill = op * (1 - slipRate);
+        const gross = shares * fill;
+        const levy = sellLevyFor(taxClass, records[i].d);
+        const fee = gross * feeRate, tax = gross * levy;
+        cash += gross - fee - tax; totalFee += fee; totalTax += tax;
+        shares = 0; cost = 0; used = 0;
+        sells++; cycles++;
+        cycleLens.push(i - cycleStart); cycleStart = i;
+      } else if (pending === "buy" && used < splits){
+        const budget = Math.min(unit, cash);
+        if (budget > 1){
+          const fill = op * (1 + slipRate);
+          const fee = budget * feeRate;
+          cash -= budget; totalFee += fee;
+          shares += (budget - fee) / fill;
+          cost += ((budget - fee) / fill) * fill;
+          used++; buys++;
+          if (used > maxUsed) maxUsed = used;
+        }
+      }
+      pending = null;
+    }
+
+    const avg = shares > 0 ? cost / shares : 0;
+
+    // --- 매도 판정 (평단 대비 목표 도달) ---
+    if (shares > 0 && px >= avg * target){
+      if (fillMode === "next"){ pending = "sell"; }   // 익일 시가에 체결
+      else {
+        const fill = px * (1 - slipRate);        // 슬리피지: 불리하게 체결
+        const gross = shares * fill;
+        const levy = sellLevyFor(taxClass, records[i].d);   // 클래스별 매도 부과금
+        const fee = gross * feeRate, tax = gross * levy;
+        cash += gross - fee - tax; totalFee += fee; totalTax += tax;
+        shares = 0; cost = 0; used = 0;
+        sells++; cycles++;
+        cycleLens.push(i - cycleStart); cycleStart = i;
+      }
+    }
+    // --- 매수 판정 (첫 진입 또는 평단 아래) ---
+    else if (used < splits && (shares === 0 || px < avg)){
+      if (fillMode === "next"){ pending = "buy"; }    // 익일 시가에 체결
+      else {
+        const budget = Math.min(unit, cash);
+        if (budget > 1){
+          const fill = px * (1 + slipRate);      // 슬리피지: 불리하게 체결
+          const fee = budget * feeRate;
+          const qty = (budget - fee) / fill;
+          cash -= budget; totalFee += fee;
+          shares += qty; cost += qty * fill;
+          used++; buys++;
+          if (used > maxUsed) maxUsed = used;
+        }
+      }
+    }
+
+    const eq = cash + shares * px;
+    deployedSum += cost / capital;              // 실제로 투입돼 있던 자본 비율
+    equity.push(eq); usedSeries.push(used); dates.push(records[i].d);
+  }
+
+  // --- 성과 지표 ---
+  const finalEq = equity.length ? equity[equity.length - 1] : capital;
+  const totalRet = (finalEq / capital - 1) * 100;
+
+  let peak = -Infinity, mdd = 0, mddEnd = 0, ddStart = 0, mddStart = 0;
+  const ddSeries = new Array(equity.length);
+  for (let i = 0; i < equity.length; i++){
+    if (equity[i] > peak){ peak = equity[i]; ddStart = i; }
+    const dd = peak > 0 ? (equity[i] / peak - 1) * 100 : 0;
+    ddSeries[i] = dd;
+    if (dd < mdd){ mdd = dd; mddEnd = i; mddStart = ddStart; }
+  }
+  // MDD 회복: 최저점 이후 이전 고점 회복까지의 거래일 수
+  let recovery = null;
+  if (mdd < 0){
+    const peakVal = equity[mddStart];
+    for (let i = mddEnd; i < equity.length; i++){
+      if (equity[i] >= peakVal){ recovery = i - mddEnd; break; }
+    }
+  }
+
+  const years = dates.length ? yearsBetween(dates[0], dates[dates.length - 1]) : 0;
+  const cagr = years > 0.5 ? (Math.pow(finalEq / capital, 1 / years) - 1) * 100 : null;
+  const avgCycle = cycleLens.length
+    ? cycleLens.reduce((a, b) => a + b, 0) / cycleLens.length : null;
+
+  return {
+    dates, equity, usedSeries, ddSeries,
+    finalEq, totalRet, cagr, mdd, recovery, mddEndDate: dates[mddEnd] || null,
+    buys, sells, cycles, avgCycle, maxUsed, totalFee, totalTax, fillMode,
+    totalCost: totalFee + totalTax, market,
+    avgDeployed: equity.length ? (deployedSum / equity.length) * 100 : 0,
+    openPosition: shares > 0, splits, years,
+  };
+}
+
+/* ============================================================
+   PBO — 백테스트 과적합 확률 (2026-08-06) — 과최적화 방지 4단계
+   ------------------------------------------------------------
+   CSCV(조합 대칭 교차검증): Bailey, Borwein, López de Prado & Zhu (2017),
+   The Probability of Backtest Overfitting, J. of Computational Finance 20(4).
+   (RESPONSE-001 검증 — S=10 권고: C(10,5)=252조합, 행렬 선계산이면 수십 ms)
+
+   질문: "학습 구간에서 1등인 조합이, 검증 구간에서 중앙값도 못 넘을 확률은?"
+     1. 전체 기간을 S=10 블록으로 자른다.
+     2. 블록 5개를 학습(IS), 나머지 5개를 검증(OOS)으로 삼는 모든 조합 252개를 돈다.
+     3. 각 조합에서 IS 샤프 1위를 뽑아 OOS에서의 상대순위 ω를 재고,
+        로짓 λ = ln(ω/(1-ω)) 가 0 이하(=중앙값 이하)인 비율이 PBO다.
+
+   구현 노트: 각 파라미터 조합의 일수익률을 블록별 (n, Σx, Σx²)로 선계산해 두면
+   임의 블록 집합의 샤프를 **정확하게**(근사 아님) 합성할 수 있다.
+   Walk-Forward와 달리 시간 순서를 섞는 방식이므로, 경로 의존 전략에서는
+   "이 시계열의 수익률 분포가 구간 선택에 얼마나 민감한가"를 재는 지표로 읽어야 한다.
+   ============================================================ */
+const PBO_S = 10;                          // 블록 수 (C(10,5)=252 조합)
+
+/* equity -> 블록별 적률 (n, Σx, Σx²) — 임의 블록 집합의 SR을 정확 합성하기 위함 */
+function blockMoments(equity, S){
+  const r = [];
+  for (let i = 1; i < equity.length; i++){
+    if (equity[i - 1] > 0) r.push(equity[i] / equity[i - 1] - 1);
+  }
+  if (r.length < S * 20) return null;      // 블록당 최소 20일
+  const blocks = [];
+  for (let b = 0; b < S; b++){
+    const lo = Math.floor(r.length * b / S), hi = Math.floor(r.length * (b + 1) / S);
+    let n = 0, sum = 0, sumsq = 0;
+    for (let i = lo; i < hi; i++){ n++; sum += r[i]; sumsq += r[i] * r[i]; }
+    blocks.push({ n, sum, sumsq });
+  }
+  return blocks;
+}
+
+function srFromMoments(sel){
+  let n = 0, sum = 0, sumsq = 0;
+  for (const b of sel){ n += b.n; sum += b.sum; sumsq += b.sumsq; }
+  if (n < 2) return null;
+  const mean = sum / n;
+  const varr = sumsq / n - mean * mean;
+  if (varr <= 1e-18) return null;
+  return mean / Math.sqrt(varr);
+}
+
+function computePBO(cells){
+  const moms = cells.map(c => c.blocks).filter(Boolean);
+  if (moms.length < cells.length || cells.length < 4) return null;
+
+  // C(S, S/2) 조합 열거 (비트마스크)
+  const S = PBO_S, half = S / 2, combos = [];
+  for (let m = 0; m < (1 << S); m++){
+    let bits = 0; for (let b = 0; b < S; b++) if (m & (1 << b)) bits++;
+    if (bits === half) combos.push(m);
+  }
+
+  let below = 0, used = 0, lambdas = [];
+  for (const m of combos){
+    const isSel = [], osSel = [];
+    for (let b = 0; b < S; b++) (m & (1 << b) ? isSel : osSel).push(b);
+
+    // IS 샤프 1위 조합 선정
+    let bestIdx = -1, bestSR = -Infinity;
+    const osSRs = [];
+    let ok = true;
+    for (let k = 0; k < cells.length; k++){
+      const bl = cells[k].blocks;
+      const si = srFromMoments(isSel.map(b => bl[b]));
+      const so = srFromMoments(osSel.map(b => bl[b]));
+      if (si == null || so == null){ ok = false; break; }
+      osSRs.push(so);
+      if (si > bestSR){ bestSR = si; bestIdx = k; }
+    }
+    if (!ok) continue;
+
+    // OOS 상대순위 ω (원 논문: rank/(N+1)) -> 로짓
+    const rank = osSRs.filter(x => x < osSRs[bestIdx]).length + 1;
+    const omega = rank / (osSRs.length + 1);
+    const lambda = Math.log(omega / (1 - omega));
+    lambdas.push(lambda);
+    if (lambda <= 0) below++;
+    used++;
+  }
+  if (used < combos.length * 0.5) return null;
+  return { pbo: below / used, combos: used,
+           medianLambda: lambdas.sort((a, b) => a - b)[lambdas.length >> 1] };
+}
+
+/* ============================================================
+   몬테카를로 가격경로 부트스트랩 (2026-08-06) — 과최적화 방지 5단계 (최종)
+   ------------------------------------------------------------
+   질문: "실제 역사는 일어날 수 있었던 수많은 역사 중 하나일 뿐이다.
+          가격 경로를 통계적으로 다시 굴려도 이 전략은 버티는가?"
+
+   방법 (RESPONSE-001 검증 완료):
+     · 거래 손익 셔플은 경로 의존 전략을 무력화하므로 금지.
+       **일수익률 시계열을 순환 블록 부트스트랩**으로 재표본하고,
+       그 위에서 전략을 통째로 다시 돌린다 (Politis & White 2004).
+     · 블록 길이 b = round(T^(1/3)) — 일봉 3,000~5,400캔들 기준 14~18일.
+       자기상관·변동성 군집을 블록 안에 보존한다.
+     · 시가는 전일 종가 대비 비율(o/prevC)을 수익률과 같은 블록으로 묶어
+       재배열한다 — 익일 시가 체결 모드에서도 갭 구조가 살아 있게.
+     · 날짜열은 원본 그대로 쓴다. 거래세율이 날짜에 붙기 때문이다.
+
+   B=500회 × 최대 5,400일 × 100분할 = 메인 스레드가 얼어붙는 규모라
+   **인라인 Web Worker**(Blob URL)에서 돌린다. 엔진 함수를 문자열로
+   직렬화해 주입하므로 별도 파일 없이 단일 HTML이 유지된다.
+
+   난수는 시드 고정(mulberry32) — 같은 시드는 같은 결과. 재현 정보를
+   화면에 남기는 이 도구의 원칙 그대로다.
+   ============================================================ */
+const MC_B = 500;
+let mcWorker = null, mcRunning = false;
+
+function mcWorkerCode(){
+  // 워커는 부모 스코프가 없다 — 필요한 상수·함수를 전부 문자열로 주입한다
+  return [
+    "const KR_SELL_TAX_TABLE = " + JSON.stringify(KR_SELL_TAX_TABLE) + ";",
+    "const US_SEC_FEE_FROM = " + JSON.stringify(US_SEC_FEE_FROM) + ";",
+    "const US_SEC_FEE = " + US_SEC_FEE + ";",
+    sellLevyFor.toString(),
+    yearsBetween.toString(),
+    simulateInfiniteBuy.toString(),
+    /* 시드 고정 PRNG — 같은 시드는 같은 경로 (재현 가능) */
+    "function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}",
+    `onmessage = function(e){
+      const { records, opts, B, seed } = e.data;
+      const T = records.length;
+      const b = Math.max(5, Math.round(Math.pow(T, 1/3)));   // Politis-White b ~ T^(1/3)
+      // 일 단위 튜플: 수익률 r=c/prevC-1, 시가비 oR=o/prevC (블록으로 함께 이동)
+      const days = [];
+      for (let i = 1; i < T; i++){
+        const pc = records[i-1].c;
+        if (pc > 0) days.push({ r: records[i].c/pc - 1, oR: (records[i].o || records[i].c)/pc });
+      }
+      const n = days.length;
+      const rand = mulberry32(seed);
+      const rets = [], mdds = [], busts = [];
+      for (let k = 0; k < B; k++){
+        // 순환 블록 부트스트랩으로 n일 재표본
+        const idx = [];
+        while (idx.length < n){
+          const start = Math.floor(rand() * n);
+          for (let j = 0; j < b && idx.length < n; j++) idx.push((start + j) % n);
+        }
+        // 가격 경로 재구성 — 날짜는 원본 유지(거래세율이 날짜에 붙는다)
+        const path = new Array(n + 1);
+        path[0] = { d: records[0].d, o: records[0].o, c: records[0].c };
+        let prevC = records[0].c;
+        for (let i = 0; i < n; i++){
+          const dy = days[idx[i]];
+          const c = prevC * (1 + dy.r);
+          path[i+1] = { d: records[i+1].d, o: prevC * dy.oR, c };
+          prevC = c;
+        }
+        const r = simulateInfiniteBuy(path, opts);
+        rets.push(r.totalRet);
+        mdds.push(r.mdd);
+        busts.push(r.maxUsed >= opts.splits ? 1 : 0);
+        if ((k + 1) % 25 === 0) postMessage({ type: "progress", done: k + 1, total: B });
+      }
+      rets.sort((a, c) => a - c);
+      mdds.sort((a, c) => a - c);
+      const q = (arr, p) => arr[Math.min(arr.length - 1, Math.floor(arr.length * p))];
+      postMessage({ type: "done",
+        q05: q(rets, 0.05), q25: q(rets, 0.25), q50: q(rets, 0.50), q75: q(rets, 0.75), q95: q(rets, 0.95),
+        mddQ50: q(mdds, 0.50), mddQ05: q(mdds, 0.05),
+        bustRate: busts.reduce((a, x) => a + x, 0) / B,
+        lossRate: rets.filter(x => x < 0).length / B,
+        B, blockLen: b, rets });
+    }`,
+  ].join("\n");
+}
+
+function runMonteCarlo(){
+  if (mcRunning || !window.__mcInput) return;
+  const { records, opts, actualRet } = window.__mcInput;
+  mcRunning = true;
+  $("mcBtn").disabled = true;
+  $("mcStatus").textContent = "0 / " + MC_B + " 경로…";
+  if (!mcWorker){
+    mcWorker = new Worker(URL.createObjectURL(new Blob([mcWorkerCode()], { type: "text/javascript" })));
+  }
+  const seed = 20260806;                       // 고정 시드 — 화면에 명시, 재현 가능
+  mcWorker.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === "progress"){
+      $("mcStatus").textContent = m.done + " / " + m.total + " 경로…";
+      return;
+    }
+    mcRunning = false;
+    $("mcBtn").disabled = false;
+    $("mcStatus").textContent = "완료 — " + m.B + "개 경로 · 블록 " + m.blockLen + "일 · 시드 " + seed;
+    renderMonteCarlo(m, actualRet);
+  };
+  mcWorker.onerror = (err) => {
+    mcRunning = false;
+    $("mcBtn").disabled = false;
+    $("mcStatus").textContent = "오류: " + (err.message || "워커 실패");
+  };
+  mcWorker.postMessage({ records, opts, B: MC_B, seed });
+}
+
+function renderMonteCarlo(m, actualRet){
+  // 실제 역사가 분포의 어디에 있는가 (백분위)
+  const pct = m.rets.filter(x => x < actualRet).length / m.rets.length * 100;
+  const kpis = [
+    ["실제 역사의 위치", pct.toFixed(0) + "백분위", pct >= 75 ? "warn" : "",
+      "500개 대체 역사 중 실측이 놓인 곳"],
+    ["대체 역사 중앙값", fmtPct(m.q50), cls(m.q50), "5% " + fmtPct(m.q05) + " ~ 95% " + fmtPct(m.q95)],
+    ["손실로 끝난 역사", (m.lossRate * 100).toFixed(0) + "%", m.lossRate > 0.25 ? "warn" : "",
+      "수익률 0% 미만 경로 비율"],
+    ["탄약 전량 소진", (m.bustRate * 100).toFixed(0) + "%", m.bustRate > 0.5 ? "warn" : "",
+      "분할 전부 투입된 경로 비율"],
+  ];
+  $("mcKpis").innerHTML = kpis.map(([k, v, c, sub]) =>
+    `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${sub}</div></div>`).join("");
+
+  const note = $("mcNote"), lbl = $("mcLbl");
+  let t = `일수익률을 <strong>${m.blockLen}일 블록</strong>으로 묶어 순환 재표본한 대체 가격 경로 `
+    + `<strong>${m.B}개</strong> 위에서 같은 전략·같은 비용을 통째로 다시 돌렸습니다`
+    + ` (Politis &amp; White 2004 · 시드 고정 재현 가능). `
+    + `실측 성과 <strong>${fmtPct(actualRet)}</strong>는 이 분포의 <strong>${pct.toFixed(0)}백분위</strong>입니다.<br><br>`;
+  if (pct >= 75){
+    note.className = "note risk";
+    lbl.textContent = "⚠️ 실제 역사가 유리한 편이었습니다";
+    t += `대체 역사의 ${pct.toFixed(0)}%가 실측보다 나빴습니다. `
+      + `<strong>지금 보고 있는 성과는 운 좋은 경로에서 나온 값일 가능성이 큽니다.</strong> `
+      + `중앙값 ${fmtPct(m.q50)} 쪽이 기대에 가깝고, 하위 5%는 ${fmtPct(m.q05)}까지 내려갑니다.`;
+  } else if (pct <= 25){
+    note.className = "note";
+    lbl.textContent = "실제 역사가 오히려 불리한 편이었습니다";
+    t += `대체 역사의 ${(100 - pct).toFixed(0)}%가 실측보다 좋았습니다. `
+      + `이 구간은 전략에 불리한 역사였을 수 있습니다 — 그래도 하위 5% 경로는 ${fmtPct(m.q05)}입니다. `
+      + `<strong>더 나쁜 역사도 얼마든지 가능했다는 사실</strong>은 변하지 않습니다.`;
+  } else {
+    note.className = "note";
+    lbl.textContent = "실측이 분포 가운데에 있습니다";
+    t += `실측 성과가 대체 역사들의 한가운데에 있습니다 — 특별히 운이 좋았던 구간은 아닙니다. `
+      + `다만 하위 5% 경로는 <strong>${fmtPct(m.q05)}</strong>, 손실로 끝난 역사가 `
+      + `<strong>${(m.lossRate * 100).toFixed(0)}%</strong>입니다. 이것이 같은 전략의 가능한 미래 폭입니다.`;
+  }
+  t += `<br><br><span style="color:var(--faint)">한계: 블록 재표본은 자기상관·변동성 군집은 보존하지만 `
+    + `장기 추세의 순서(강세장 뒤 약세장 같은 국면 배열)는 섞습니다. `
+    + `날짜열·세율은 원본을 유지했습니다.</span>`;
+  $("mcText").innerHTML = t;
+  $("mcResults").style.display = "";
+}
+
+/* ============================================================
+   Deflated Sharpe Ratio (2026-08-06) — 과최적화 방지 3단계
+   ------------------------------------------------------------
+   민감도 지도가 "16개가 이만큼 갈린다", Walk-Forward가 "1위를 골라도
+   다음 구간에선 안 통했다"를 보여줬다면, DSR은 마지막 질문에 답한다:
+       "16개나 시도해 놓고 고른 최고 성과인데,
+        그 정도는 순전히 운으로도 나오는 숫자 아닌가?"
+
+   수식: Bailey & Lopez de Prado (2014), The Deflated Sharpe Ratio,
+   Journal of Portfolio Management 40(5), 94-107. (RESPONSE-001 검증 완료)
+     SR* = sqrt(V[{SR_k}]) · [ (1-γ)·Φ⁻¹(1-1/N) + γ·Φ⁻¹(1-1/(N·e)) ]
+     DSR = Φ( (SR^-SR*)·sqrt(T-1) / sqrt(1 - γ₃·SR^ + ((γ₄-1)/4)·SR^²) )
+   γ=0.5772(Euler-Mascheroni) · γ₃ 왜도 · γ₄ 첨도 · T 일수익률 관측 수.
+   SR^·SR_k 는 전부 **비연율화(일 단위)** — 원 논문 기준.
+
+   N(시도 횟수)은 RESPONSE-001 권고대로 파라미터 공간(16)을 기본으로,
+   이 세션에서 실행할 때마다 16씩 누적한다. 실행을 반복할수록 기준선
+   SR*가 올라간다 — 많이 뒤질수록 우연히 좋은 결과가 나오기 때문이다.
+
+   [정직성 명시] 무한매수법은 현금 대기일이 많아 일수익률 0이 흔하다.
+   그 비정규성(왜도·첨도)이 분모에 그대로 반영되는 것이 이 수식의 요점.
+   사이클 단위 적용(T=완료 사이클 수)도 가능하나 표본이 수십 개뿐이라
+   일 단위를 쓴다.
+   ============================================================ */
+const EULER_GAMMA = 0.5772156649015329;
+let dsrTrialsN = 0;                       // 세션 누적 시도 수 (실행마다 +16)
+
+/* 표준정규 CDF — erf 근사 (Abramowitz & Stegun 7.1.26, 오차 < 1.5e-7) */
+function normCdf(x){
+  const ax = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * ax);
+  const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t
+              - 0.284496736) * t + 0.254829592) * t * Math.exp(-ax * ax);
+  return x >= 0 ? 0.5 * (1 + e) : 0.5 * (1 - e);
+}
+
+/* 표준정규 역CDF — Acklam 근사 (오차 < 1.15e-9) */
+function normInv(p){
+  if (p <= 0 || p >= 1) return p <= 0 ? -Infinity : Infinity;
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+             1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+             6.680131188771972e+01, -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+             -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+             3.754408661907416e+00];
+  const pl = 0.02425;
+  let q, r;
+  if (p < pl){
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+  if (p <= 1 - pl){
+    q = p - 0.5; r = q * q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+  }
+  q = Math.sqrt(-2 * Math.log(1 - p));
+  return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+
+/* equity 곡선 -> 일수익률의 {sr, skew, kurt, T} (전부 비연율화) */
+function dailyStats(equity){
+  const r = [];
+  for (let i = 1; i < equity.length; i++){
+    if (equity[i - 1] > 0) r.push(equity[i] / equity[i - 1] - 1);
+  }
+  const T = r.length;
+  if (T < 30) return null;
+  const mean = r.reduce((a, x) => a + x, 0) / T;
+  let m2 = 0, m3 = 0, m4 = 0;
+  for (const x of r){ const dv = x - mean; m2 += dv*dv; m3 += dv*dv*dv; m4 += dv*dv*dv*dv; }
+  m2 /= T; m3 /= T; m4 /= T;
+  const sd = Math.sqrt(m2);
+  if (sd < 1e-12) return null;              // 거래가 사실상 없던 구간
+  return { sr: mean / sd, skew: m3 / (sd ** 3), kurt: m4 / (m2 * m2), T };
+}
+
+function computeDSR(cells, curCell){
+  // cells: 16조합(각각 sr 보유) / curCell: 현재 보고 있는 조합
+  if (!curCell || !curCell.dstats) return null;
+  const valid = cells.map(c => c.sr).filter(x => x != null);
+  if (valid.length < 2) return null;
+  const mean = valid.reduce((a, x) => a + x, 0) / valid.length;
+  const varSR = valid.reduce((a, x) => a + (x - mean) ** 2, 0) / (valid.length - 1);
+  const N = Math.max(dsrTrialsN, valid.length);
+  const srStar = Math.sqrt(Math.max(varSR, 0)) *
+    ((1 - EULER_GAMMA) * normInv(1 - 1 / N) + EULER_GAMMA * normInv(1 - 1 / (N * Math.E)));
+  const st = curCell.dstats;
+  const denom = 1 - st.skew * st.sr + ((st.kurt - 1) / 4) * st.sr * st.sr;
+  if (denom <= 0) return { dsr: null, srStar, N, fail: "비정규성이 극단적이라 수식 적용 불가" };
+  const z = (st.sr - srStar) * Math.sqrt(st.T - 1) / Math.sqrt(denom);
+  return { dsr: normCdf(z), srStar, N, sr: st.sr, T: st.T, skew: st.skew, kurt: st.kurt };
+}
+
+/* ============================================================
+   파라미터 민감도 지도 (2026-08-05 추가) — 과최적화 방지 1단계
+   ------------------------------------------------------------
+   이 도구의 가장 큰 취약점은 "사용자가 분할수·목표수익률을 바꿔가며
+   가장 좋은 조합을 찾는 것"이었다. 그걸 막을 장치가 하나도 없었다.
+
+   해법: 숨기지 말고 **전부 보여준다.**
+   16개 조합(분할 4종 × 목표 4종)을 한 번에 계산해 나란히 깔면,
+   최고값이 '발견'이 아니라 **분포의 끝일 뿐**이라는 게 드러난다.
+
+   이 방식에는 검증이 필요한 수식이 없다 — 같은 엔진을 16번 돌릴 뿐이다.
+   (Walk-Forward·DSR·PBO는 방법론 검토 후 별도 반영)
+   ============================================================ */
+const SPLIT_OPTS = [20, 40, 60, 100];
+const TARGET_OPTS = [5, 8, 10, 15];
+
+function computeParamMap(records, base){
+  const cells = [];
+  for (const sp of SPLIT_OPTS){
+    for (const tg of TARGET_OPTS){
+      const r = simulateInfiniteBuy(records, { ...base, splits: sp, targetPct: tg });
+      const ds = dailyStats(r.equity);
+      cells.push({ splits: sp, target: tg, ret: r.totalRet, mdd: r.mdd,
+                   maxUsed: r.maxUsed, cycles: r.cycles, sr: ds ? ds.sr : null, dstats: ds,
+                   blocks: blockMoments(r.equity, PBO_S) });
+    }
+  }
+  const rets = cells.map(c => c.ret).sort((a, b) => a - b);
+  const mid = rets.length >> 1;
+  const median = rets.length % 2 ? rets[mid] : (rets[mid - 1] + rets[mid]) / 2;
+  return {
+    cells,
+    best: Math.max(...rets), worst: Math.min(...rets), median,
+    spread: Math.max(...rets) - Math.min(...rets),
+    bestOverMedian: Math.max(...rets) - median,
+  };
+}
+
+/* ============================================================
+   Walk-Forward 분석 (2026-08-05) — 과최적화 방지 2단계
+   ------------------------------------------------------------
+   민감도 지도가 "16개 조합이 이만큼 갈린다"를 보여줬다면,
+   이건 그다음 질문에 답한다:
+       "학습구간에서 1등이던 조합이, 다음 구간에서도 통했는가?"
+
+   [외부 검토 반영 — RESPONSE-001, 2026-08-06]
+     · Rolling WF 채택 (기본값). 경로 의존 전략에서는 과거 레짐을 누적하는
+       Anchored보다 국면 적응력을 보는 Rolling이 과적합 방지에 적합하다는 권고.
+       Anchored도 선택지로 남긴다.
+     · IS:OS = 70:30 (Pardo 2008, Ch.7 표준 관행)
+     · 워크포워드 스텝 수 W ≤ 5 권고
+     · 경계 사이클 처리: **Clean Slate** — 검증구간 시작 시 현금 100%로 재설정해
+       학습구간 상태가 새어 나가는 것(Data Leakage)을 차단한다.
+       (이 방식은 검토 전 구현과 동일했고, 표준으로 확인됨)
+
+   핵심 지표 = 평균 검증 순위
+     16개 중 무작위로 골랐을 때 기댓값은 8.5위다.
+     학습 1위의 평균 검증 순위가 8.5에 가까우면 **최적화에 예측력이 없다**는 뜻이다.
+
+   출처: Robert Pardo (2008) The Evaluation and Optimization of Trading Strategies, Wiley
+   ============================================================ */
+const WF_IS_RATIO = 0.7;                    // IS:OS = 70:30 (Pardo 2008)
+
+function computeWalkForward(records, base, opts){
+  const W = Math.min(opts.steps || 5, 5);   // 스텝 수 상한 5 (검토 권고)
+  const anchored = opts.mode === "anchored";
+  const n = records.length;
+
+  /* 창 길이 산출 — IS:OS = 70:30 을 지키면서 W스텝이 들어가게
+     n = L_is + W·L_os,  L_is = (0.7/0.3)·L_os  =>  L_os = n / (W + 7/3) */
+  const osLen = Math.floor(n / (W + WF_IS_RATIO / (1 - WF_IS_RATIO)));
+  const isLen = Math.floor(osLen * WF_IS_RATIO / (1 - WF_IS_RATIO));
+  if (osLen < 30 || isLen < 60) return null;   // 구간이 너무 짧으면 의미 없음
+
+  const steps = [];
+  for (let k = 0; k < W; k++){
+    const osStart = isLen + k * osLen;
+    const osEnd = Math.min(osStart + osLen, n);
+    if (osEnd - osStart < 30) break;
+    const isStart = anchored ? 0 : Math.max(0, osStart - isLen);
+
+    const isRecs = records.slice(isStart, osStart);
+    const osRecs = records.slice(osStart, osEnd);
+    if (isRecs.length < 60) continue;
+
+    // 학습구간에서 16개 중 1위 선정
+    const isMap = computeParamMap(isRecs, base);
+    const pick = isMap.cells.reduce((a, c) => c.ret > a.ret ? c : a, isMap.cells[0]);
+
+    // 검증구간에서 전부 돌려 그 조합이 몇 위였는지 확인 (Clean Slate — 새 자본)
+    const osMap = computeParamMap(osRecs, base);
+    const sorted = [...osMap.cells].sort((a, b) => b.ret - a.ret);
+    const got = osMap.cells.find(c => c.splits === pick.splits && c.target === pick.target);
+    const rank = sorted.findIndex(c => c.splits === pick.splits && c.target === pick.target) + 1;
+
+    /* 순위만으로는 거짓말이 된다.
+       조합들이 사실상 동점인 구간에서 "1위를 맞췄다"고 말하면 잡음을 실력으로 포장하게 된다.
+       구간 내 최고~최저 격차와, 학습 1위를 따라 실제로 놓친 폭을 같이 기록한다. */
+    steps.push({
+      isFrom: isRecs[0].d, isTo: isRecs[isRecs.length - 1].d,
+      osFrom: osRecs[0].d, osTo: osRecs[osRecs.length - 1].d,
+      pickSplits: pick.splits, pickTarget: pick.target,
+      isRet: pick.ret, osRet: got.ret, osRank: rank,
+      osBest: osMap.best, osMedian: osMap.median,
+      osSpread: osMap.spread, gap: osMap.best - got.ret,
+      osBestCell: sorted[0],
+    });
+  }
+  if (!steps.length) return null;
+
+  const nCombo = SPLIT_OPTS.length * TARGET_OPTS.length;
+  const avg = f => steps.reduce((a, s) => a + f(s), 0) / steps.length;
+  return {
+    steps, anchored, isLen, osLen, nCombo,
+    avgRank: avg(s => s.osRank),
+    avgOsRet: avg(s => s.osRet),
+    avgOsMedian: avg(s => s.osMedian),
+    avgOsBest: avg(s => s.osBest),
+    beat: steps.filter(s => s.osRet > s.osMedian).length,
+    avgSpread: avg(s => s.osSpread), maxSpread: Math.max(...steps.map(s => s.osSpread)),
+    avgGap: avg(s => s.gap),
+    randomExpect: (nCombo + 1) / 2,          // 무작위 선택의 기대 순위 = 8.5
+  };
+}
+
+/* ============================================================
+   벤치마크: 단순 보유 (Buy & Hold)
+   ------------------------------------------------------------
+   이 비교가 없으면 전략 성과를 해석할 수 없다.
+   "수익률 +244%"는 같은 기간 단순 보유가 +3,275%였다면 전혀 다른 의미다.
+   ============================================================ */
+function computeBuyHold(records, capital, opts){
+  /* ⚠️ 2026-08-05 수정 — 벤치마크에도 전략과 '동일한' 비용을 적용한다.
+     이전에는 가격비만 계산해 수수료·슬리피지·세금이 0이었다.
+     비용 없는 벤치마크와 비용 있는 전략을 비교하면 그 자체로 불공정하다.
+     최초 1회 매수 + 최종 1회 매도(청산가치) 비용을 반영한다. */
+  const o = opts || {};
+  const feeRate = o.feeRate || 0, slipRate = o.slipRate || 0;
+  const taxClass = o.taxClass || "";
+  const last = records[records.length - 1];
+
+  const buyFill = records[0].c * (1 + slipRate);
+  const shares = (capital - capital * feeRate) / buyFill;   // 매수 수수료 차감 후 수량
+
+  const equity = records.map(r => shares * r.c);            // 보유 평가액 (미청산 기준)
+  let peak = -Infinity, mdd = 0;
+  for (const e of equity){
+    if (e > peak) peak = e;
+    const dd = (e / peak - 1) * 100;
+    if (dd < mdd) mdd = dd;
+  }
+  // 청산가치 = 마지막 날 전량 매도했을 때 손에 쥐는 금액 (매도 비용 반영)
+  const sellFill = last.c * (1 - slipRate);
+  const gross = shares * sellFill;
+  const exitCost = gross * (feeRate + sellLevyFor(taxClass, last.d));
+  const finalEq = gross - exitCost;                          // 청산가치 기준으로 통일
+  const totalCost = capital * feeRate + exitCost;
+
+  const years = yearsBetween(records[0].d, last.d);
+  return {
+    equity, finalEq, totalCost,
+    totalRet: (finalEq / capital - 1) * 100,
+    cagr: years > 0.5 ? (Math.pow(finalEq / capital, 1 / years) - 1) * 100 : null,
+    mdd,
+  };
+}
+
+/* ============================================================
+   비용 시나리오 — 시장별로 다르다
+   ------------------------------------------------------------
+   미국과 한국은 거래비용 구조가 근본적으로 다르다.
+   - 미국: 위탁수수료 중심, 매도세 없음(SEC 수수료는 극소)
+   - 한국: 위탁수수료는 매우 낮으나 **매도 시 증권거래세**가 별도로 붙는다.
+           이 매도세가 회전율 높은 전략(무한매수법)에서 지배적 비용이 된다.
+   sellTax는 매도에만 적용되며 매수에는 붙지 않는다.
+   ============================================================ */
+const SCENARIO_SETS = {
+  // 미국: 국내 증권사 미국주식 수수료 — 이벤트 0.07% / 토스 0.1% / 표준 0.25%
+  US: [
+    { key:"opt",  name:"낙관", feeRate:0.0007, slipRate:0.0002 },
+    { key:"base", name:"기본", feeRate:0.0010, slipRate:0.0005 },
+    { key:"cons", name:"보수", feeRate:0.0025, slipRate:0.0010 },
+  ],
+  // 한국: 우대(유관기관만) 0.0036% / 온라인 표준 0.015% / 비우대 0.15%
+  KR: [
+    { key:"opt",  name:"낙관", feeRate:0.000036, slipRate:0.0005 },
+    { key:"base", name:"기본", feeRate:0.00015,  slipRate:0.0010 },
+    { key:"cons", name:"보수", feeRate:0.0015,   slipRate:0.0020 },
+  ],
+};
+let SCENARIOS = SCENARIO_SETS.US;   // 종목 선택에 따라 교체된다
+
+/* ============================================================
+   금액 입력 — 천단위 콤마 + 단위 읽기 (2026-08-06)
+   ------------------------------------------------------------
+   input[type=number]는 콤마를 넣을 수 없다. 1000만원을 "10000000"으로 보면
+   0을 몇 개 쳤는지 눈으로 셀 수 없어 자릿수 실수가 난다.
+   -> type=text + inputmode=numeric 으로 바꾸고 입력 중 실시간 서식을 넣는다.
+      커서는 "앞쪽 숫자 개수" 기준으로 복원한다. 콤마가 삽입돼도 위치가 튀지 않는다.
+      옆에는 money()로 읽은 단위(1,000만원 / $100,000)를 함께 띄운다.
+   ============================================================ */
+function amtVal(id){ return Number(String($(id).value).replace(/[^\d]/g, "")) || 0; }
+
+function amtFormat(str){
+  const digits = String(str).replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
+  return digits ? Number(digits).toLocaleString("en-US") : "";
+}
+
+function amtEcho(id){
+  const e = $(id + "Echo");
+  if (!e) return;
+  const v = amtVal(id);
+  e.textContent = v > 0 ? money(v) : "";
+}
+
+function setAmount(id, v){ $(id).value = Number(v).toLocaleString("en-US"); amtEcho(id); }
+
+function attachAmount(id){
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const caret = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, caret).replace(/[^\d]/g, "").length;
+    el.value = amtFormat(el.value);
+    let pos = 0, seen = 0;
+    while (pos < el.value.length && seen < before){ if (/\d/.test(el.value[pos])) seen++; pos++; }
+    try { el.setSelectionRange(pos, pos); } catch (_){}
+    amtEcho(id);
+  });
+  amtEcho(id);
+}
+
+/* ============================================================
+   종목 검색 필터 (2026-08-06)
+   ------------------------------------------------------------
+   유니버스를 36 -> 188종목으로 늘리면서, 평면 드롭다운으로는
+   원하는 종목을 찾을 수 없게 됐다. optgroup 그룹핑만으로는 부족하다.
+   티커·종목명 어느 쪽으로 쳐도 걸리게 하고, 비어버린 그룹은 숨긴다.
+   ============================================================ */
+function applyTickerFilter(sel, q){
+  const kw = (q || "").trim().toLowerCase();
+  const hits = [];
+  let exact = null;
+
+  sel.querySelectorAll("optgroup").forEach(g => {
+    let any = false;
+    g.querySelectorAll("option").forEach(o => {
+      const tk = o.value.toLowerCase();                 // 티커 · 국내 종목번호(005930)
+      const nm = (o.textContent.split("—")[1] || "").trim().toLowerCase();
+      const hit = !kw || tk.includes(kw) || nm.includes(kw) || g.label.toLowerCase().includes(kw);
+      o.hidden = !hit;
+      if (hit){ any = true; hits.push(o); if (tk === kw) exact = o; }
+    });
+    g.hidden = !any;
+  });
+
+  /* "조회해서 선택"이 한 동작으로 끝나게 한다.
+     티커·종목번호를 정확히 다 쳤거나 후보가 하나로 좁혀지면 그 자리에서 선택한다.
+     그렇지 않더라도 현재 선택이 걸러졌으면 보이는 첫 항목으로 옮긴다
+     (숨은 값이 선택된 채로 실행되는 것을 막는다). */
+  const pick = exact || (hits.length === 1 ? hits[0] : null);
+  if (pick && sel.value !== pick.value){
+    sel.value = pick.value;
+    sel.dispatchEvent(new Event("change"));
+  } else if (sel.selectedOptions[0] && sel.selectedOptions[0].hidden){
+    const first = hits[0];
+    if (first){ sel.value = first.value; sel.dispatchEvent(new Event("change")); }
+  }
+  return hits.length;
+}
+
+/* ---------------- 데이터 로딩 ---------------- */
+let MANIFEST = null;
+const CACHE = new Map();
+
+async function loadManifest(){
+  const res = await fetch("../data/manifest.json", { cache:"no-store" });
+  if (!res.ok) throw new Error("manifest.json 응답 " + res.status);
+  return res.json();
+}
+async function loadTicker(t){
+  if (CACHE.has(t)) return CACHE.get(t);
+  const res = await fetch(`../data/${t}.json`, { cache:"no-store" });
+  if (!res.ok) throw new Error(`${t}.json 응답 ${res.status}`);
+  const j = await res.json();
+  CACHE.set(t, j);
+  return j;
+}
+
+/* ---------------- 차트 (Canvas) ---------------- */
+function drawChart(cv, r, bh){
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 380;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  const cs = getComputedStyle(document.documentElement);
+  const C = k => cs.getPropertyValue(k).trim();
+  const accent = C("--accent"), red = C("--red"), line = C("--line"),
+        faint = C("--faint"), amber = C("--amber");
+
+  const padL = 62, padR = 46, padT = 14, padB = 26;
+  const eqH = 250, ddTop = padT + eqH + 22, ddH = H - ddTop - padB;
+  const n = r.equity.length;
+  if (!n) return;
+
+  const xs = i => padL + (W - padL - padR) * (i / (n - 1 || 1));
+
+  // 전략과 벤치마크의 스케일 차이가 수십 배에 달할 수 있으므로 로그 축을 쓴다.
+  // 선형 축이면 전략 곡선이 바닥에 붙어 아무것도 읽을 수 없다.
+  const all = bh ? r.equity.concat(bh.equity) : r.equity;
+  const lo = Math.max(1, Math.min(...all)), hi = Math.max(...all);
+  const yBot = lo / 1.15, yTop = hi * 1.15;
+  const lb = Math.log(yBot), lt = Math.log(yTop);
+  const ys = v => padT + eqH * (1 - (Math.log(Math.max(v, 1)) - lb) / (lt - lb || 1));
+
+  // 그리드 + y축 (로그 등간격)
+  g.font = "11px " + C("--mono");
+  g.textAlign = "right"; g.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++){
+    const v = Math.exp(lb + (lt - lb) * i / 4), y = ys(v);
+    g.strokeStyle = line; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke();
+    g.fillStyle = faint;
+    g.fillText(money(v), padL - 8, y);
+  }
+
+  // 소진 회차 (배경 영역, 우측 축)
+  g.fillStyle = faint; g.globalAlpha = 0.16;
+  g.beginPath(); g.moveTo(xs(0), padT + eqH);
+  for (let i = 0; i < n; i++){
+    g.lineTo(xs(i), padT + eqH * (1 - r.usedSeries[i] / r.splits));
+  }
+  g.lineTo(xs(n - 1), padT + eqH); g.closePath(); g.fill();
+  g.globalAlpha = 1;
+  g.textAlign = "left"; g.fillStyle = faint;
+  g.fillText(r.splits + "회", W - padR + 6, padT + 4);
+  g.fillText("0회", W - padR + 6, padT + eqH - 4);
+
+  // 원금 기준선
+  const base = r.equity.length ? r.equity[0] : 0;
+  g.strokeStyle = faint; g.setLineDash([3, 4]); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(padL, ys(base)); g.lineTo(W - padR, ys(base)); g.stroke();
+  g.setLineDash([]);
+
+  // 벤치마크 (단순 보유) — 전략보다 먼저 그려 뒤에 깔리게 한다
+  if (bh){
+    g.strokeStyle = amber; g.lineWidth = 1.5; g.setLineDash([5, 3]); g.lineJoin = "round";
+    g.beginPath();
+    for (let i = 0; i < n && i < bh.equity.length; i++){
+      const x = xs(i), y = ys(bh.equity[i]); i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke(); g.setLineDash([]);
+  }
+
+  // 전략 자산 곡선
+  g.strokeStyle = accent; g.lineWidth = 1.9; g.lineJoin = "round";
+  g.beginPath();
+  for (let i = 0; i < n; i++){ const x = xs(i), y = ys(r.equity[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+
+  // 낙폭 서브플롯
+  const ddMin = Math.min(...r.ddSeries, -1);
+  const dys = v => ddTop + ddH * (v / ddMin);
+  g.strokeStyle = line; g.beginPath(); g.moveTo(padL, ddTop); g.lineTo(W - padR, ddTop); g.stroke();
+  g.fillStyle = red; g.globalAlpha = 0.28;
+  g.beginPath(); g.moveTo(xs(0), ddTop);
+  for (let i = 0; i < n; i++) g.lineTo(xs(i), dys(r.ddSeries[i]));
+  g.lineTo(xs(n - 1), ddTop); g.closePath(); g.fill();
+  g.globalAlpha = 1;
+  g.fillStyle = faint; g.textAlign = "right";
+  g.fillText(ddMin.toFixed(0) + "%", padL - 8, ddTop + ddH);
+  g.fillText("0%", padL - 8, ddTop + 4);
+
+  // x축 날짜
+  g.textAlign = "center"; g.textBaseline = "top"; g.fillStyle = faint;
+  [0, Math.floor(n / 2), n - 1].forEach(i => {
+    if (r.dates[i]) g.fillText(r.dates[i].slice(0, 7), xs(i), H - padB + 6);
+  });
+}
+
+/* ---------------- UI 배선 ---------------- */
+const $ = id => document.getElementById(id);
+const state = { splits:40, target:10, fillMode:"loc" };
+
+function bindSeg(el, key){
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    [...el.querySelectorAll("button")].forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    state[key] = Number(b.dataset.v);
+  });
+}
+bindSeg($("splitSeg"), "splits");
+bindSeg($("targetSeg"), "target");
+
+$("to").value = new Date().toISOString().slice(0, 10);
+
+function fmtPct(v){ return (v >= 0 ? "+" : "") + v.toFixed(1) + "%"; }
+
+/* CAGR용 경과 연수 — 거래일 수 ÷ 252가 아니라 실제 달력 기간으로 계산한다.
+   거래정지·공통거래일 교집합으로 날짜가 빠지면 252 나누기는 기간을 과소평가하고,
+   그만큼 CAGR이 과대 계산된다. (2026-08-05 수정) */
+function yearsBetween(d0, d1){
+  const ms = new Date(d1 + "T00:00:00Z") - new Date(d0 + "T00:00:00Z");
+  return ms / (365.2425 * 864e5);
+}
+
+/* 요율(수수료·슬리피지) 표기 — 0.0036% 같은 작은 값이 0.00%로 뭉개지지 않게 자릿수를 늘린다 */
+function fmtRate(r){
+  const pct = r * 100;
+  if (pct === 0) return "0%";
+  if (pct < 0.01) return pct.toFixed(4).replace(/0+$/, "").replace(/\.$/, "") + "%";
+  if (pct < 0.1)  return pct.toFixed(3).replace(/0+$/, "").replace(/\.$/, "") + "%";
+  return pct.toFixed(2) + "%";
+}
+
+/* 통화 표기 — 종목의 시장에 따라 달러/원을 전환한다.
+   원화는 금액 단위가 커서 만/억 단위 축약을 병행한다. */
+const CUR = { code:"USD", sym:"$", suffix:"" };
+function money(v){
+  const n = Math.round(v);
+  if (CUR.code === "KRW"){
+    if (Math.abs(n) >= 1e8) return (n / 1e8).toFixed(2) + "억원";
+    if (Math.abs(n) >= 1e6) return Math.round(n / 1e4).toLocaleString() + "만원";
+    if (Math.abs(n) >= 1e4) return (n / 1e4).toFixed(1) + "만원";
+    return n.toLocaleString() + "원";
+  }
+  return "$" + n.toLocaleString();
+}
+function setMarket(mkt){
+  if (mkt === "KR"){ CUR.code = "KRW"; CUR.sym = "₩"; SCENARIOS = SCENARIO_SETS.KR; }
+  else            { CUR.code = "USD"; CUR.sym = "$"; SCENARIOS = SCENARIO_SETS.US; }
+}
+function cls(v){ return v > 0 ? "pos" : v < 0 ? "neg" : ""; }
+
+function renderKpis(r){
+  const rec = r.recovery == null
+    ? (r.mdd < 0 ? "미회복" : "—")
+    : (r.recovery / 21).toFixed(1) + "개월";
+  const items = [
+    ["최종 수익률", fmtPct(r.totalRet), cls(r.totalRet), `${money(r.finalEq)}`],
+    ["연평균(CAGR)", r.cagr == null ? "—" : fmtPct(r.cagr), r.cagr == null ? "" : cls(r.cagr), r.years.toFixed(1) + "년"],
+    ["최대 낙폭(MDD)", r.mdd.toFixed(1) + "%", "neg", r.mddEndDate || ""],
+    ["MDD 회복기간", rec, r.recovery == null && r.mdd < 0 ? "warn" : "", "최저점 이후"],
+    ["완료 사이클", r.cycles + "회", "", r.avgCycle ? "평균 " + Math.round(r.avgCycle) + "거래일" : "미완료"],
+    ["최대 소진 회차", `${r.maxUsed} / ${r.splits}`, r.maxUsed >= r.splits ? "neg" : r.maxUsed / r.splits > 0.8 ? "warn" : "pos", "탄약 소진율 " + Math.round(r.maxUsed / r.splits * 100) + "%"],
+    ["총 매매", (r.buys + r.sells) + "회", "", `매수 ${r.buys} · 매도 ${r.sells}`],
+    ["누적 거래비용", money(r.totalCost), "warn",
+      r.totalTax > 0 ? `수수료 ${money(r.totalFee)} + 거래세 ${money(r.totalTax)}`
+                     : "수수료(슬리피지는 체결가에 반영)"],
+  ];
+  $("kpis").innerHTML = items.map(([k, v, c, s]) =>
+    `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`
+  ).join("");
+
+  // 기타 ETF는 미반영 세금이 있으므로 결과 위에 경고를 띄운다
+  const tn = $("taxWarn");
+  if (tn){
+    if (window.__taxClass === "other_etf"){
+      tn.style.display = "";
+      $("taxWarnText").textContent = TAX_NOTE.other_etf;
+    } else tn.style.display = "none";
+  }
+
+  const note = $("depletionNote");
+  if (r.maxUsed >= r.splits){
+    note.style.display = "";
+    $("depletionText").innerHTML = `분할 <strong>${r.splits}회를 전부 소진</strong>했습니다. 실전이라면 이 시점부터 추가 매수가 불가능해 평균단가를 낮출 수단이 사라지고, 목표 수익률까지 반등할 때까지 무한정 대기하게 됩니다. <strong>분할 수를 늘리거나 목표 수익률을 낮춰</strong> 다시 검증해 보십시오.`;
+  } else if (r.maxUsed / r.splits > 0.8){
+    note.style.display = "";
+    $("depletionText").innerHTML = `분할의 <strong>${Math.round(r.maxUsed / r.splits * 100)}%까지 소진</strong>했습니다. 여유가 크지 않습니다 — 더 깊은 하락장에서는 소진될 가능성이 있습니다.`;
+  } else {
+    note.style.display = "none";
+  }
+}
+
+function renderParamMap(pm, curSplits, curTarget){
+  const rank = [...pm.cells].sort((a, b) => b.ret - a.ret);
+  const curIdx = rank.findIndex(c => c.splits === curSplits && c.target === curTarget);
+  const cur = rank[curIdx];
+
+  // 색: 최고=진한 강조, 최저=붉은 톤. 순위가 아니라 값의 위치로 칠한다.
+  const span = pm.best - pm.worst || 1;
+  $("paramBody").innerHTML = SPLIT_OPTS.map(sp => {
+    const tds = TARGET_OPTS.map(tg => {
+      const c = pm.cells.find(x => x.splits === sp && x.target === tg);
+      const t = (c.ret - pm.worst) / span;                 // 0~1
+      const isCur = (sp === curSplits && tg === curTarget);
+      const bg = t > 0.75 ? "var(--tint)" : t < 0.25 ? "var(--red-t)" : "transparent";
+      return `<td class="num" style="background:${bg}${isCur ? ";outline:2px solid var(--accent);outline-offset:-2px;font-weight:700" : ""}">`
+        + `${fmtPct(c.ret)}<br><span style="font-size:11px;color:var(--faint)">MDD ${c.mdd.toFixed(0)}% · ${c.maxUsed}/${sp}</span></td>`;
+    }).join("");
+    return `<tr><td style="font-family:var(--mono);font-weight:600">${sp}분할</td>${tds}</tr>`;
+  }).join("");
+
+  const note = $("paramNote"), txt = $("paramText");
+  const ratio = pm.median !== 0 ? pm.spread / Math.abs(pm.median) : 0;
+
+  let t = `같은 종목·기간·비용으로 <strong>16개 조합을 전부</strong> 돌린 결과입니다. `
+    + `최고 ${fmtPct(pm.best)} · 중앙값 ${fmtPct(pm.median)} · 최저 ${fmtPct(pm.worst)}, `
+    + `<strong>격차 ${pm.spread.toFixed(0)}%p</strong>입니다.<br><br>`
+    + `지금 보고 계신 <strong>${curSplits}분할 · 목표 +${curTarget}%</strong>는 `
+    + `<strong>16개 중 ${curIdx + 1}위</strong>(${fmtPct(cur.ret)})입니다. `;
+
+  if (ratio > 1.5){
+    note.className = "note risk";
+    t += `<br><br><strong>⚠️ 조합에 따라 결과가 극단적으로 갈립니다.</strong> `
+      + `최고와 중앙값 차이만 ${pm.bestOverMedian.toFixed(0)}%p입니다. `
+      + `이 정도 편차라면 <strong>1위 조합의 성과는 실력이 아니라 이 구간에 우연히 맞은 것</strong>일 가능성이 큽니다. `
+      + `실전에서 미리 그 조합을 고를 수 있었을지 생각해 보십시오.`;
+  } else if (ratio > 0.5){
+    note.className = "note";
+    t += `<br><br>조합별 편차가 작지 않습니다. 최고값 하나만 보고 판단하지 마십시오.`;
+  } else {
+    note.className = "note";
+    t += `<br><br>조합별 편차가 비교적 작습니다 — 이 구간에서는 파라미터 선택이 결과를 크게 좌우하지 않았습니다. `
+      + `다만 <strong>기간을 바꾸면 순위는 쉽게 뒤집힙니다.</strong> 시작일을 옮겨 확인해 보십시오.`;
+  }
+  t += `<br><br><span style="color:var(--faint)">※ 이 표는 과최적화 방지의 1단계입니다. `
+    + `Walk-Forward·Deflated Sharpe·PBO는 방법론 검토 후 별도 반영 예정입니다.</span>`;
+  txt.innerHTML = t;
+}
+
+function renderDSR(d, pbo){
+  const box = $("dsrKpis"), note = $("dsrNote"), lbl = $("dsrLbl"), txt = $("dsrText");
+  const sec = box.closest("section");
+  if (!d){ sec.style.display = "none"; return; }
+  sec.style.display = "";
+
+  const annSR = d.sr != null ? (d.sr * Math.sqrt(252)).toFixed(2) : "—";
+  const kpis = [
+    ["DSR", d.dsr == null ? "계산 불가" : (d.dsr * 100).toFixed(1) + "%",
+      d.dsr == null ? "" : d.dsr >= 0.95 ? "" : "warn",
+      "운이 아닐 확률 (다중시도 보정 후)"],
+    ["PBO", pbo == null ? "—" : (pbo.pbo * 100).toFixed(0) + "%",
+      pbo == null ? "" : pbo.pbo >= 0.5 ? "warn" : pbo.pbo >= 0.2 ? "warn" : "",
+      pbo == null ? "구간 부족" : "학습 1위가 검증에서 중앙값 이하일 확률 (CSCV " + pbo.combos + "조합)"],
+    ["누적 시도 횟수 N", d.N.toLocaleString() + "회", "", "이 세션에서 계산한 조합 수"],
+    ["샤프 (연율화)", annSR, "", "현재 조합 · 일수익 " + (d.T || 0).toLocaleString() + "건"],
+    ["운의 기준선 SR*", d.srStar == null ? "—" : (d.srStar * Math.sqrt(252)).toFixed(2), "",
+      "N회 시도 시 순수 운으로 기대되는 최고 샤프"],
+  ];
+  box.innerHTML = kpis.map(([k, v, c, sub]) =>
+    `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${sub}</div></div>`).join("");
+
+  let t = `이 화면은 실행할 때마다 16개 조합을 전부 계산합니다. 지금까지 <strong>${d.N.toLocaleString()}개</strong>를 시도했고, `
+    + `많이 뒤질수록 <strong>순전히 운으로도 좋은 조합이 나옵니다.</strong> `
+    + `DSR은 그 운의 상한(SR*)을 빼고 남는 신뢰도입니다`
+    + ` (Bailey &amp; López de Prado 2014 · 수익률의 왜도 ${d.skew?.toFixed(1) ?? "—"} · 첨도 ${d.kurt?.toFixed(1) ?? "—"} 반영).<br><br>`;
+
+  if (d.dsr == null){
+    note.className = "note risk"; lbl.textContent = "계산 불가";
+    t += `<strong>${d.fail || "수익률 분포가 극단적이라 수식을 적용할 수 없습니다."}</strong> `
+      + `이 자체가 경고입니다 — 정규분포에서 한참 먼 성과 곡선입니다.`;
+  } else if (d.dsr < 0.5){
+    note.className = "note risk"; lbl.textContent = "⚠️ 운과 구별되지 않습니다";
+    t += `지금 조합의 성과는 <strong>${d.N}번 뒤졌을 때 운으로 나오는 수준을 넘지 못합니다</strong> (DSR ${(d.dsr*100).toFixed(1)}%). `
+      + `이 조합이 "좋은 전략"이라는 통계적 근거가 없습니다.`;
+  } else if (d.dsr < 0.95){
+    note.className = "note risk"; lbl.textContent = "약한 증거 — 확신 금지";
+    t += `운보다는 낫지만 관례적 기준(95%)에 못 미칩니다 (DSR ${(d.dsr*100).toFixed(1)}%). `
+      + `<strong>시도를 반복할수록 이 값은 내려갑니다</strong> — 지금 몇 번째 실행인지 위의 N을 보십시오.`;
+  } else {
+    note.className = "note"; lbl.textContent = "우연으로 보기 어려움 — 그래도 단정 금지";
+    t += `${d.N}번의 시도를 감안해도 이 성과는 운의 상한을 넘습니다 (DSR ${(d.dsr*100).toFixed(1)}%). `
+      + `다만 이것은 <strong>한 종목의 한 역사</strong>에서 나온 값입니다. `
+      + `Walk-Forward 표가 다른 얘기를 하고 있다면 그쪽이 우선입니다.`;
+  }
+  if (pbo != null){
+    t += `<br><br><strong>PBO ${(pbo.pbo * 100).toFixed(0)}%</strong> — 기간을 10블록으로 잘라 학습/검증을 `
+      + `${pbo.combos}가지로 조합했을 때, <strong>학습 1위가 검증에서 중앙값도 못 넘긴 비율</strong>입니다`
+      + ` (CSCV, Bailey et al. 2017). `
+      + (pbo.pbo >= 0.5
+        ? `<strong>절반이 넘습니다 — 이 종목·기간에서 "최적 조합"은 구간 선택의 산물일 가능성이 큽니다.</strong>`
+        : pbo.pbo >= 0.2
+        ? `무시할 수 없는 수준입니다. DSR이 높아도 이 값이 크면 구간 운이 섞여 있다는 뜻입니다.`
+        : `낮은 편입니다. 다만 시간 순서를 섞는 방식이라 경로 의존 전략에서는 참고 지표로 보십시오.`);
+  }
+  txt.innerHTML = t;
+}
+
+function renderWalkForward(wf){
+  const sec = $("wfBody").closest("section");
+  if (!wf){                                   // 기간이 짧아 구간을 못 나눌 때
+    sec.style.display = "none";
+    return;
+  }
+  sec.style.display = "";
+  const short = d => d.slice(2).replace(/-/g, ".");
+  const N = wf.nCombo;
+
+  $("wfBody").innerHTML = wf.steps.map((s, i) => {
+    // 순위 색: 상위 1/3 강조, 하위 1/3 경고
+    const bg = s.osRank <= N / 3 ? "var(--tint)" : s.osRank > N * 2 / 3 ? "var(--red-t)" : "transparent";
+    return `<tr>
+      <td style="color:var(--faint)">${i + 1}</td>
+      <td style="font-size:12px">${short(s.isFrom)}~${short(s.isTo)}</td>
+      <td style="font-family:var(--mono);font-weight:600">${s.pickSplits}분할 · +${s.pickTarget}%</td>
+      <td class="num" style="color:var(--faint)">${fmtPct(s.isRet)}</td>
+      <td style="font-size:12px">${short(s.osFrom)}~${short(s.osTo)}</td>
+      <td class="num">${fmtPct(s.osRet)}</td>
+      <td class="num" style="background:${bg};font-weight:700">${s.osRank}위 / ${N}</td>
+      <td class="num" style="color:${s.gap > 10 ? "var(--red)" : "var(--faint)"}">${s.gap < 0.05 ? "—" : s.gap.toFixed(0) + "%p"}</td>
+      <td class="num" style="color:var(--faint)">${s.osSpread.toFixed(0)}%p</td>
+    </tr>`;
+  }).join("");
+
+  const note = $("wfNote"), lbl = $("wfLbl"), txt = $("wfText");
+  const R = wf.avgRank, E = wf.randomExpect;
+
+  let t = `전체 기간을 <strong>학습 ${wf.isLen}거래일 → 검증 ${wf.osLen}거래일</strong>로 나눠 `
+    + `${wf.steps.length}번 앞으로 굴렸습니다(${wf.anchored ? "Anchored" : "Rolling"}, IS:OS=70:30). `
+    + `학습구간에서 <strong>1위였던 조합만</strong> 그다음 검증구간에 적용하고, `
+    + `검증구간에서도 ${N}개를 전부 돌려 <strong>몇 위였는지</strong> 기록했습니다. `
+    + `검증구간은 조합 선택에 쓰이지 않았고, 구간마다 현금 100%로 새로 시작합니다.<br><br>`
+    + `<strong>평균 검증 순위 ${R.toFixed(1)}위 / ${N}</strong> — `
+    + `아무 조합이나 찍었을 때의 기댓값은 <strong>${E}위</strong>입니다. `
+    + `검증구간에서 중앙값을 넘긴 건 ${wf.steps.length}번 중 <strong>${wf.beat}번</strong>입니다.`;
+
+  t += ` 학습 1위를 따라서 <strong>평균 ${wf.avgGap.toFixed(0)}%p</strong> 놓쳤습니다.`;
+
+  /* 순위보다 격차를 먼저 본다. 조합들이 동점이면 순위는 의미가 없다. */
+  if (wf.avgSpread < 5){
+    note.className = "note";
+    lbl.textContent = "조합 선택이 성과를 거의 바꾸지 않았습니다";
+    t += `<br><br><strong>순위를 논할 만한 차이가 없습니다.</strong> `
+      + `검증구간에서 ${N}개 조합의 최고~최저 격차가 평균 ${wf.avgSpread.toFixed(1)}%p였습니다. `
+      + `위의 순위는 대부분 <strong>잡음</strong>으로 보십시오.`;
+  } else if (R >= E){
+    note.className = "note risk";
+    lbl.textContent = "⚠️ 최적화가 오히려 해로웠습니다";
+    t += `<br><br><strong>학습구간 1위를 고르는 것이 무작위로 찍는 것보다 나빴습니다.</strong> `
+      + `과거 성적이 가장 좋았던 조합이 다음 구간에서는 평균 ${R.toFixed(1)}위로 밀렸습니다. `
+      + `이 종목·이 기간에서 <strong>"가장 좋은 조합 찾기"는 통하지 않는다</strong>는 뜻입니다. `
+      + `민감도 지도의 1위 칸은 그 구간에 우연히 맞은 값으로 보십시오.`;
+  } else if (R > E * 0.75){
+    note.className = "note risk";
+    lbl.textContent = "⚠️ 예측력이 사실상 없습니다";
+    t += `<br><br>무작위(${E}위)와 큰 차이가 없습니다. `
+      + `<strong>학습구간 성적으로 미래 성적을 고를 수 있다는 증거가 나오지 않았습니다.</strong> `
+      + `특정 조합을 "검증된 설정"이라 부를 근거가 없습니다.`;
+  } else if (R > E * 0.5){
+    note.className = "note";
+    lbl.textContent = "약한 지속성";
+    t += `<br><br>무작위보다는 낫지만 차이가 크지 않습니다. `
+      + `표본이 ${wf.steps.length}스텝뿐이라 <strong>우연일 가능성을 배제할 수 없습니다.</strong> `
+      + `다른 종목·다른 기간에서도 같은 결과가 나오는지 확인하십시오.`;
+  } else {
+    note.className = "note";
+    lbl.textContent = "지속성 관찰됨 — 그래도 단정 금지";
+    t += `<br><br>학습구간 1위가 검증구간에서도 상위권을 유지했습니다. `
+      + `다만 스텝이 ${wf.steps.length}번뿐이고 <strong>한 종목의 한 역사</strong>일 뿐입니다. `
+      + `표본이 늘면 무너질 수 있습니다.`;
+  }
+  txt.innerHTML = t;
+}
+
+function renderBenchmark(r, bh){
+  $("benchBody").innerHTML = `
+    <tr class="base">
+      <td><strong>무한매수법</strong><br><span style="color:var(--faint);font-size:11.5px">${r.splits}분할 · 목표 +${state.target}%</span></td>
+      <td class="num">${fmtPct(r.totalRet)}</td>
+      <td class="num">${r.cagr == null ? "—" : fmtPct(r.cagr)}</td>
+      <td class="num">${r.mdd.toFixed(1)}%</td>
+      <td class="num">${r.avgDeployed.toFixed(0)}%</td>
+      <td class="num">${money(r.totalCost)}</td>
+    </tr>
+    <tr>
+      <td>단순 보유<br><span style="color:var(--faint);font-size:11.5px">첫날 전액 매수 후 방치</span></td>
+      <td class="num">${fmtPct(bh.totalRet)}</td>
+      <td class="num">${bh.cagr == null ? "—" : fmtPct(bh.cagr)}</td>
+      <td class="num">${bh.mdd.toFixed(1)}%</td>
+      <td class="num">100%</td>
+      <td class="num">${money(bh.totalCost || 0)}</td>
+    </tr>`;
+
+  const capture = bh.totalRet !== 0 ? (r.totalRet / bh.totalRet) * 100 : 0;
+  /* MDD는 음수다. 전략 낙폭이 벤치마크보다 얕을 때만 '줄였다'고 말해야 한다.
+     부호를 헷갈리면 "-10% 줄였고" 같은 문장이 나온다. */
+  const ddCut = bh.mdd !== 0 ? (1 - r.mdd / bh.mdd) * 100 : 0;
+  const ddPhrase = ddCut > 0.5
+    ? `최대 낙폭은 ${bh.mdd.toFixed(0)}% → ${r.mdd.toFixed(0)}%로 <strong>${ddCut.toFixed(0)}% 줄였고</strong>`
+    : ddCut < -0.5
+      ? `그런데 최대 낙폭은 ${bh.mdd.toFixed(0)}% → ${r.mdd.toFixed(0)}%로 <strong>오히려 깊어졌고</strong>`
+      : `최대 낙폭은 ${bh.mdd.toFixed(0)}%로 <strong>거의 같았고</strong>`;
+  const note = $("benchNote"), txt = $("benchText");
+
+  if (bh.totalRet > r.totalRet){
+    note.className = "note risk";
+    txt.innerHTML = `같은 기간 <strong>단순히 사서 들고만 있었다면 ${fmtPct(bh.totalRet)}</strong>였습니다. `
+      + `이 전략은 그 상승분의 <strong>${capture.toFixed(0)}%만 가져갔습니다.</strong> `
+      + `대신 ${ddPhrase}, `
+      + `평균적으로 원금의 ${r.avgDeployed.toFixed(0)}%만 시장에 투입했습니다(나머지는 현금 대기). `
+      + `<br><br>즉 이 전략은 <strong>수익 극대화 전략이 아니라 변동성 완화 전략</strong>입니다. `
+      + `"수익률 ${fmtPct(r.totalRet)}"만 떼어 보여주는 자료는 이 맥락을 숨긴 것입니다.`;
+  } else {
+    note.className = "note";
+    txt.innerHTML = `이 구간에서는 전략이 단순 보유(${fmtPct(bh.totalRet)})를 <strong>상회</strong>했습니다. `
+      + `최대 낙폭도 ${bh.mdd.toFixed(0)}% → ${r.mdd.toFixed(0)}%로 낮았고, 평균 투입자본은 원금의 ${r.avgDeployed.toFixed(0)}%였습니다. `
+      + `다만 이는 <strong>선택한 특정 구간의 결과</strong>이므로, 시작일을 바꿔가며 재검증해 보십시오 — `
+      + `특정 기간에만 유효한 결과일 수 있습니다(과최적화 위험).`;
+  }
+}
+
+function renderScenarios(results){
+  $("scenarioBody").innerHTML = SCENARIOS.map(s => {
+    const r = results[s.key];
+    return `<tr class="${s.key === "base" ? "base" : ""}">
+      <td>${s.name}</td>
+      <td class="num">${fmtRate(s.feeRate)}</td>
+      <td class="num">${fmtRate(s.slipRate)}</td>
+      <td class="num">${fmtPct(r.totalRet)}</td>
+      <td class="num">${r.cagr == null ? "—" : fmtPct(r.cagr)}</td>
+      <td class="num">${r.mdd.toFixed(1)}%</td>
+      <td class="num">${r.totalTax > 0 ? money(r.totalTax) : "—"}</td>
+      <td class="num">${money(r.totalCost)}</td>
+    </tr>`;
+  }).join("");
+
+  // 주장이 아니라 이번 계산의 실측값을 그대로 쓴다.
+  const opt = results.opt, base = results.base, cons = results.cons;
+  const spread = opt.totalRet - cons.totalRet;         // 낙관 - 보수 (수익률 %p)
+  const feeGap = cons.totalCost - opt.totalCost;
+  const capital = base.finalEq / (1 + base.totalRet / 100);
+  const profit = base.finalEq - capital;               // 손실이면 음수
+  const monotonic = opt.totalRet >= base.totalRet && base.totalRet >= cons.totalRet;
+
+  let txt = `이번 설정에서는 ${base.buys + base.sells}회를 매매했고, 기본 시나리오 기준 누적 비용은 `
+    + `<strong>${money(base.totalCost)}</strong>`;
+  txt += profit > 0
+    ? `로 순이익의 약 <strong>${(base.totalCost / profit * 100).toFixed(1)}%</strong>였습니다. `
+    : `로 원금의 약 <strong>${(base.totalCost / capital * 100).toFixed(1)}%</strong>였습니다 `
+      + `(이 구간은 <strong>손실</strong>로 끝나 이익 대비 비율은 의미가 없습니다). `;
+  txt += `낙관과 보수 사이의 비용 차이는 ${money(feeGap)}, `
+    + `최종 수익률 차이는 ${Math.abs(spread).toFixed(1)}%p입니다. `;
+
+  if (Math.abs(spread) < 3){
+    txt += `<strong>이 구간에서는 비용 가정이 결론을 뒤집지 않았습니다.</strong> `;
+    txt += profit > 0
+      ? `다만 이는 이익 규모가 비용보다 훨씬 컸기 때문이며, 횡보 구간이나 매매 회전이 `
+        + `더 잦은 설정에서는 비중이 급격히 커집니다 — 기간과 파라미터를 바꿔 확인해 보십시오.`
+      : `이 구간의 손실은 비용 때문이 아니라 <strong>전략 자체가 하락을 막지 못했기 때문</strong>입니다. `
+        + `비용을 0으로 둬도 결과는 크게 달라지지 않습니다.`;
+  } else {
+    txt += `<strong>비용 가정만으로 결론이 달라질 수 있는 수준입니다.</strong> `
+      + `낙관 시나리오만 보고 판단하지 마십시오.`;
+  }
+  if (!monotonic){
+    txt += `<br><br><span style="color:var(--amber)">※ 비용이 높은데 수익률이 더 높게 나온 시나리오가 있습니다.</span> `
+      + `오류가 아니라 <strong>경로 의존성</strong> 때문입니다 — 체결가가 미세하게 달라지면 평균단가와 `
+      + `매도 시점이 바뀌고, 이후 매매 경로 전체가 갈라집니다. `
+      + `이런 전략의 성과는 비용에 대해 단조롭게 반응하지 않으며, 이 자체가 `
+      + `<strong>결과가 우연에 민감하다는 신호</strong>입니다.`;
+  }
+  $("costText").innerHTML = txt;
+}
+
+function renderAssumptions(meta, r){
+  $("assumpBody").textContent = [
+    (state.fillMode === "next"
+      ? `체결 방식   신호일 종가 판단 -> 익일 시가 체결 (가장 보수적 가정)`
+      : `체결 방식   당일 종가 판단 -> 당일 종가 체결 (LOC 조건부 종가주문 모사)
+            LOC는 목표가·기준가를 전일까지 정보로 미리 걸 수 있어 사전 구현이 가능하다.
+            단 반대주문 부족 시 미체결 가능성은 반영하지 않는다.`),
+    `종목        ${meta.ticker} (${meta.name})  [${meta.market || "US"} · ${meta.currency || "USD"}]`,
+    `데이터      ${meta.source} / schema v${meta.schema_version} / 수집 ${meta.fetched_at}`,
+    (meta.market === "KR"
+      ? `가격 기준   수정주가(액면분할 반영) 종가 — ⚠️ 배당 미반영(KRX 공개데이터 한계)`
+      : `가격 기준   수정주가(배당·분할 반영) 종가`),
+    `기간        ${r.dates[0]} ~ ${r.dates[r.dates.length - 1]}  (${r.dates.length} 거래일)`,
+    `총 투자금   ${money(amtVal("capital"))}`,
+    `분할 수     ${state.splits}  (1회 매수액 ${money(amtVal("capital") / state.splits)})`,
+    `목표 수익률 평단 대비 +${state.target}% 도달 시 전량 매도`,
+    `체결 방식   LOC (장마감 종가 기준). 시그널과 체결이 동일 시점 — 종가 확정 후 판단하는`,
+    `            실제 LOC 주문 특성을 반영. 장중 고가 터치는 체결로 인정하지 않음(보수적).`,
+    `비용 모델   3시나리오 병렬 계산. 표시된 요약 지표는 '기본' 시나리오 기준.`,
+    `세금        ${TAX_NOTE[meta.tax_class] || "분류 미지정"}`,
+    (meta.tax_class === "kr_equity"
+      ? `증권거래세  매도 시 부과, 시점별 자동 적용 — ` +
+        KR_SELL_TAX_TABLE.map(t => `${t.label} ${(t.rate*100).toFixed(2)}%`).join(" / ") +
+        `
+            (증권거래세법 시행령 탄력세율 + 농어촌특별세법 제5조)`
+      : meta.tax_class === "us"
+        ? `SEC 수수료  매도 시 0.00206% (2026-04-04 부활, 그 이전 $0)`
+        : `매도 부과금  없음 (ETF는 증권거래세 비대상)`),
+    `미반영      세금(양도·배당), 환전비용, 시장충격, 부분체결, 거래정지`,
+    `엔진        simulateInfiniteBuy() / 경로의존 순차 루프`,
+  ].join("\n");
+}
+
+async function run(){
+  const t = $("ticker").value;
+  if (!t) return;
+  const btn = $("runBtn"), st = $("status");
+  btn.disabled = true; st.className = "status"; st.textContent = "계산 중…";
+  try {
+    const data = await loadTicker(t);
+    setMarket(data.market || "US");          // 통화·비용모델을 시장에 맞게 전환
+    const from = $("from").value, to = $("to").value;
+    const recs = data.records.filter(x => (!from || x.d >= from) && (!to || x.d <= to));
+    if (recs.length < 60) throw new Error("해당 기간 데이터가 부족합니다 (60거래일 미만)");
+
+    const capital = Math.max(1000, amtVal("capital") || 100000);
+    const results = {};
+    for (const s of SCENARIOS){
+      results[s.key] = simulateInfiniteBuy(recs, {
+        capital, splits: state.splits, targetPct: state.target,
+        feeRate: s.feeRate, slipRate: s.slipRate,
+        market: data.market || "US",
+        taxClass: data.tax_class || "",
+        fillMode: state.fillMode,
+      });
+    }
+    const base = results.base;
+    const bh = computeBuyHold(recs, capital, {
+      feeRate: SCENARIOS.find(x => x.key === "base").feeRate,
+      slipRate: SCENARIOS.find(x => x.key === "base").slipRate,
+      market: data.market || "US", taxClass: data.tax_class || "",
+    });
+    window.__taxClass = data.tax_class || "";
+    /* ☠️ 상폐 종목이면 결과 최상단에 경고 — 이 데이터가 존재하는 이유 자체를 설명한다 */
+    if (data.delisted){
+      $("delistWarn").style.display = "";
+      $("delistText").innerHTML =
+        `이 종목은 <strong>${data.delist_date}</strong>에 상장폐지됐습니다`
+        + (data.delist_reason ? ` (${data.delist_reason})` : "") + `. `
+        + `위 결과는 <strong>마지막 시세까지의 계산</strong>일 뿐이며, 실제로는 거래정지·정리매매·`
+        + `환금성 제약으로 <strong>이보다 나빴을 가능성이 큽니다.</strong><br><br>`
+        + `이 종목이 목록에 있는 이유: 살아남은 종목만으로 백테스트하면 수익률이 구조적으로 부풀려집니다`
+        + `(생존편향). 과거 그 시점에는 이 종목도 똑같이 고를 수 있는 선택지였습니다 — `
+        + `<strong>지금 백테스트가 좋게 나온 종목도, 그때는 이들과 구분되지 않았습니다.</strong>`;
+    } else {
+      $("delistWarn").style.display = "none";
+    }
+    const pm = computeParamMap(recs, {
+      capital, feeRate: SCENARIOS.find(x => x.key === "base").feeRate,
+      slipRate: SCENARIOS.find(x => x.key === "base").slipRate,
+      taxClass: data.tax_class || "", fillMode: state.fillMode,
+    });
+    renderParamMap(pm, state.splits, state.target);
+    dsrTrialsN += pm.cells.length;         // 실행마다 시도 수 누적 — 반복할수록 기준선이 올라간다
+    const curCell = pm.cells.find(c => c.splits === state.splits && c.target === state.target);
+    renderDSR(computeDSR(pm.cells, curCell), computePBO(pm.cells));
+    /* 몬테카를로는 무거워서 자동 실행하지 않는다 — 입력만 준비해 두고 버튼을 연다 */
+    window.__mcInput = { records: recs, opts: {
+      capital, splits: state.splits, targetPct: state.target,
+      feeRate: SCENARIOS.find(x => x.key === "base").feeRate,
+      slipRate: SCENARIOS.find(x => x.key === "base").slipRate,
+      market: data.market || "US", taxClass: data.tax_class || "", fillMode: state.fillMode,
+    }, actualRet: base.totalRet };
+    $("mcBtn").disabled = false;
+    $("mcResults").style.display = "none";
+    $("mcStatus").textContent = "준비 완료 — 실행 시 " + MC_B + "개 대체 경로를 계산합니다";
+    const wfBase = {
+      capital, feeRate: SCENARIOS.find(x => x.key === "base").feeRate,
+      slipRate: SCENARIOS.find(x => x.key === "base").slipRate,
+      taxClass: data.tax_class || "", fillMode: state.fillMode,
+    };
+    renderWalkForward(computeWalkForward(recs, wfBase, { steps: 5, mode: "rolling" }));
+    renderBenchmark(base, bh);
+    renderKpis(base);
+    renderScenarios(results);
+    renderAssumptions(data, base);
+    $("results").classList.remove("hidden");
+    drawChart($("chart"), base, bh);
+    window.__last = base; window.__bh = bh;
+    st.textContent = `완료 — ${recs.length.toLocaleString()} 거래일 · 3시나리오`;
+  } catch (err){
+    st.className = "status err";
+    st.textContent = "오류: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("fillMode").addEventListener("change", e => { state.fillMode = e.target.value; });
+$("runBtn").addEventListener("click", run);
+$("mcBtn").addEventListener("click", runMonteCarlo);
+$("mcBtn").disabled = true;
+let rt; addEventListener("resize", () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => { if (window.__last) drawChart($("chart"), window.__last, window.__bh); }, 150);
+});
+
+(async function init(){
+  const st = $("status");
+  try {
+    MANIFEST = await loadManifest();
+    const sel = $("ticker");
+    const labels = { index:"지수 ETF", sector:"섹터 ETF", intl:"해외 ETF", factor:"팩터 ETF",
+                   leveraged:"레버리지 ETF", inverse:"인버스 ETF", volatility:"변동성 ETF",
+                   bond:"채권", commodity:"원자재", reit:"리츠", dividend:"배당 ETF",
+                   equity:"개별주", delisted:"☠️ 상장폐지 (생존편향 표본)" };
+    const mktName = { KR:"🇰🇷 한국", US:"🇺🇸 미국" };
+    // 시장 -> 카테고리 2단 그룹. 한국을 먼저 보여준다(주 사용자층)
+    const byMkt = {};
+    MANIFEST.tickers.forEach(t => {
+      const m = t.market || "US";
+      ((byMkt[m] ||= {})[t.category] ||= []).push(t);
+    });
+    const order = ["KR", "US"].filter(m => byMkt[m]);
+    sel.innerHTML = order.map(m =>
+      Object.entries(byMkt[m]).map(([cat, list]) =>
+        `<optgroup label="${mktName[m] || m} · ${labels[cat] || cat}">` +
+        list.map(t => `<option value="${t.ticker}" data-market="${m}">${t.ticker} — ${t.name}</option>`).join("") +
+        `</optgroup>`
+      ).join("")
+    ).join("");
+    const total = MANIFEST.tickers.length;
+    $("tickCount").textContent = total + "종목";
+    $("tickSearch").addEventListener("input", e => {
+      const n = applyTickerFilter(sel, e.target.value);
+      $("tickCount").textContent = e.target.value.trim() ? n + " / " + total + "종목" : total + "종목";
+    });
+    // 기본 선택: 한국 레버리지(KODEX 레버리지) → 없으면 첫 종목
+    const defKR = byMkt.KR?.leveraged?.[0];
+    sel.value = defKR ? defKR.ticker : MANIFEST.tickers[0].ticker;
+    // 종목 바꾸면 통화·기본 투자금 즉시 반영 (실행 전에도 화면이 맞게 보이도록)
+    const syncCur = () => {
+      const m = sel.selectedOptions[0]?.dataset.market || "US";
+      setMarket(m);
+      $("curHint").textContent = CUR.code;
+      const cap = $("capital");
+      const isKR = m === "KR";
+      // 사용자가 직접 만진 값이 아니면 시장 표준액으로 맞춘다
+      if (!cap.dataset.touched) setAmount("capital", isKR ? 10000000 : 100000);
+      else amtEcho("capital");          // 통화가 바뀌면 읽기 단위도 다시 쓴다
+    };
+    sel.addEventListener("change", syncCur);
+    $("capital").addEventListener("input", e => { e.target.dataset.touched = "1"; });
+    attachAmount("capital");
+    syncCur();
+    $("runBtn").disabled = false;
+    st.textContent = `준비 완료 — ${MANIFEST.count}종목`;
+    $("dataStamp").textContent = `데이터 생성 ${MANIFEST.generated_at?.slice(0, 10) || "-"}`;
+  } catch (err){
+    st.className = "status err";
+    st.textContent = "데이터를 불러오지 못했습니다 — 로컬 파일을 직접 열면 브라우저 보안정책(CORS)에 막힙니다. GitHub Pages 등 웹서버에서 열어주십시오.";
+  }
+})();
+</script>
+</body>
+</html>
