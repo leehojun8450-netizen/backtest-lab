@@ -1,0 +1,11 @@
+{
+  "ran_at": "2026-08-21T04:20:32+00:00",
+  "sources": {
+    "us": false,
+    "kr": true,
+    "rates": true
+  },
+  "changed": 0,
+  "deployed": false,
+  "elapsed_sec": 972
+}
