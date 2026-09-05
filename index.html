@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>backtest-lab — 정직한 백테스트 도구</title>
+<meta name="description" content="투자 전략을 과거 데이터로 검증하는 무료 도구. 거래비용 3시나리오와 단순보유 벤치마크를 항상 함께 보여줍니다.">
+<style>
+:root{
+  --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2;
+  --line:#d3d6cd; --line-2:#b7bcae; --red:#9c3b32; --amber:#a47726;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif KR",serif;
+  --sans:-apple-system,"Segoe UI","Pretendard","Apple SD Gothic Neo","Noto Sans KR",Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Roboto Mono","D2Coding",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+    --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+    --red:#df8074; --amber:#dbb15a; }
+}
+:root[data-theme="dark"]{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+  --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239; --red:#df8074; --amber:#dbb15a; }
+:root[data-theme="light"]{ --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2; --line:#d3d6cd; --line-2:#b7bcae; --red:#9c3b32; --amber:#a47726; }
+
+*{box-sizing:border-box;} html,body{margin:0;padding:0;}
+body{ background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:940px; margin:0 auto; padding:0 22px 90px; }
+
+header.hero{ padding:72px 0 44px; border-bottom:1px solid var(--line); }
+.eyebrow{ font-family:var(--mono); font-size:11.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:9px; margin-bottom:20px; }
+.eyebrow::before{ content:""; width:22px; height:1px; background:var(--accent); }
+h1{ font-family:var(--serif); font-size:clamp(30px,5vw,46px); font-weight:600; line-height:1.2; margin:0 0 8px; text-wrap:balance; }
+h1 .em{ color:var(--accent); }
+.tagline{ font-family:var(--serif); font-size:clamp(17px,2.2vw,21px); font-style:italic; color:var(--soft); margin:0 0 22px; }
+header.hero p.lede{ color:var(--soft); max-width:60ch; margin:0; font-size:15.5px; }
+
+.stance{ margin:36px 0 0; background:var(--tint); border:1px solid var(--line-2); border-radius:13px; padding:26px 30px; }
+.stance h2{ font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-2); margin:0 0 14px; font-weight:600; }
+.stance ul{ margin:0; padding-left:19px; }
+.stance li{ margin-bottom:9px; font-size:14.5px; color:var(--soft); line-height:1.6; }
+.stance li:last-child{ margin-bottom:0; }
+.stance li::marker{ color:var(--accent); }
+.stance b{ color:var(--ink); }
+
+h2.sec{ font-family:var(--serif); font-size:23px; font-weight:600; margin:52px 0 6px; }
+p.sec-dek{ color:var(--faint); font-size:14px; margin:0 0 22px; }
+
+.tools{ display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:16px; }
+a.tool{ display:block; text-decoration:none; color:inherit; background:var(--raised); border:1px solid var(--line); border-radius:13px; padding:22px 24px; transition:border-color .15s, transform .15s; }
+a.tool:hover, a.tool:focus-visible{ border-color:var(--accent); transform:translateY(-2px); outline:none; }
+a.tool .num{ font-family:var(--mono); font-size:10.5px; letter-spacing:.07em; color:var(--accent); }
+a.tool h3{ font-family:var(--serif); font-size:19px; margin:7px 0 9px; font-weight:600; }
+a.tool p{ font-size:13.6px; color:var(--soft); margin:0 0 14px; line-height:1.55; }
+a.tool .go{ font-family:var(--mono); font-size:12px; color:var(--accent); }
+.tool.soon{ opacity:.55; pointer-events:none; }
+.tool.soon .go{ color:var(--faint); }
+.chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.chip{ font-family:var(--mono); font-size:10px; padding:2px 8px; border-radius:999px; background:var(--tint); color:var(--accent-2); border:1px solid var(--line); }
+
+.data-note{ border:1px solid var(--line); border-radius:11px; padding:20px 24px; background:var(--raised); margin-top:16px; }
+.data-note dl{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:8px 22px; font-size:13.6px; }
+.data-note dt{ font-family:var(--mono); font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:.04em; padding-top:3px; }
+.data-note dd{ margin:0; color:var(--soft); }
+.fresh{ display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11.5px; padding:3px 10px; border-radius:999px; font-weight:600; }
+.fresh::before{ content:""; width:7px; height:7px; border-radius:50%; }
+.fresh.ok{ background:var(--tint); color:var(--accent-2); } .fresh.ok::before{ background:var(--accent); }
+.fresh.warn{ background:#f1e6d2; color:#7a5718; } .fresh.warn::before{ background:var(--amber); }
+.fresh.bad{ background:#f3e1de; color:#7d2f27; } .fresh.bad::before{ background:var(--red); }
+@media (prefers-color-scheme:dark){ .fresh.warn{ background:#2b2418; color:#dbb15a; } .fresh.bad{ background:#2c1e1c; color:#df8074; } }
+
+.disclaimer{ border:1px solid var(--line-2); border-left:3px solid var(--red); border-radius:9px; padding:18px 22px; margin-top:44px; background:var(--raised); }
+.disclaimer .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--red); margin-bottom:7px; }
+.disclaimer p{ margin:0; font-size:13.2px; color:var(--soft); line-height:1.65; }
+
+footer{ margin-top:46px; padding-top:24px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11.5px; color:var(--faint); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+footer a{ color:var(--accent); }
+@media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">backtest-lab</div>
+    <h1>누구나 전략을 만들 수 있게,<br><span class="em">누구도 검증을 생략할 수 없게.</span></h1>
+    <p class="tagline">거짓말하지 않는 백테스트 도구</p>
+    <p class="lede">투자 전략을 과거 데이터로 검증합니다. 설치도 회원가입도 없이 브라우저에서 바로 돌아가며, 거래비용과 벤치마크 비교를 <strong>끌 수 없게</strong> 만들어 두었습니다.</p>
+  </header>
+
+  <section class="stance">
+    <h2>이 도구가 다른 점</h2>
+    <ul>
+      <li><b>거래비용을 숨기지 않습니다.</b> 매매전략 도구(무한매수법·포트폴리오)는 수수료·슬리피지·세금을 낙관·기본·보수 3가지로 동시에 계산하며, <strong>비용을 끌 수 없습니다.</strong> 벤치마크인 단순 보유에도 같은 비용을 적용합니다. (변동성 끌림 계산기는 비용 항목별 영향을 분해해 보여주는 교육용 도구라 값을 0으로 두고 실험할 수 있습니다)</li>
+      <li><b>벤치마크를 항상 함께 보여줍니다.</b> "수익률 +244%"는 같은 기간 단순 보유가 +3,275%였다면 완전히 다른 의미입니다. 이 비교 없이는 어떤 성과도 해석할 수 없습니다.</li>
+      <li><b>가정을 전부 공개합니다.</b> 체결 방식·기간·파라미터·미반영 항목까지 결과 화면에 그대로 적습니다. 재현할 수 없는 숫자는 근거가 아닙니다.</li>
+      <li><b>불리한 결과도 그대로 보여줍니다.</b> 전략이 손실로 끝나거나 벤치마크에 뒤지면, 그 사실을 먼저 씁니다.</li>
+    </ul>
+  </section>
+
+  <h2 class="sec">도구</h2>
+  <p class="sec-dek">각 도구는 독립 실행됩니다. 계정도 결제도 필요 없습니다.</p>
+
+  <div class="tools">
+    <a class="tool" href="tools/infinite-buy.html">
+      <div class="num">TOOL 01</div>
+      <h3>무한매수법 시뮬레이터</h3>
+      <div class="chips">
+        <span class="chip">분할매수</span><span class="chip">LOC 체결</span><span class="chip">경로의존</span><span class="chip">🇰🇷🇺🇸</span>
+      </div>
+      <p>총 투자금을 분할해 평균단가 아래에서만 매수하고, 목표 수익률 도달 시 전량 매도하는 전략을 검증합니다. 분할 탄약을 얼마나 소진했는지까지 보여줍니다.</p>
+      <p style="color:var(--accent);font-size:12.6px;margin-bottom:14px">🇰🇷 국내 종목 지원 — 증권거래세 시점별 자동 반영</p>
+      <div class="go">열기 →</div>
+    </a>
+
+    <a class="tool" href="tools/portfolio.html">
+      <div class="num">TOOL 02</div>
+      <h3>포트폴리오 시뮬레이터</h3>
+      <div class="chips">
+        <span class="chip">자산배분</span><span class="chip">리밸런싱</span><span class="chip">적립식</span><span class="chip">🇰🇷🇺🇸</span>
+      </div>
+      <p>여러 자산을 정한 비중으로 담고 주기적으로 리밸런싱했을 때의 성과·최대낙폭·회복 경로를 검증합니다.</p>
+      <p style="color:var(--accent);font-size:12.6px;margin-bottom:14px">"리밸런싱이 정말 이득이었나" — 주기별로 비용까지 반영해 나란히 비교</p>
+      <div class="go">열기 →</div>
+    </a>
+
+    <a class="tool" href="tools/volatility-drag.html">
+      <div class="num">TOOL 03</div>
+      <h3>레버리지 변동성 끌림 계산기</h3>
+      <div class="chips">
+        <span class="chip">레버리지 ETF</span><span class="chip">음의 복리</span><span class="chip">차입금리</span><span class="chip">🇰🇷🇺🇸</span>
+      </div>
+      <p>기초지수가 제자리로 돌아와도 레버리지 ETF에 손실이 남는 이유를, 변동성 끌림·운용보수·차입금리로 분해합니다.</p>
+      <p style="color:var(--accent);font-size:12.6px;margin-bottom:14px">이론값을 실제 ETF와 대조해 모델이 맞는지까지 표시</p>
+      <div class="go">열기 →</div>
+    </a>
+
+    <a class="tool" href="tools/dividend.html">
+      <div class="num">TOOL 04</div>
+      <h3>배당 투자 시뮬레이터</h3>
+      <div class="chips">
+        <span class="chip">배당 재투자</span><span class="chip">현금 수령</span><span class="chip">배당소득세</span><span class="chip">원화 환산</span>
+      </div>
+      <p>배당금을 <strong>재투자했을 때</strong>와 <strong>현금으로 받았을 때</strong>를 같은 화면에서 나란히 계산합니다. 투자금이 실제로 얼마나 불어났는지, 원금 대비 배당률이 어디까지 올라가는지 보여줍니다.</p>
+      <p style="color:var(--accent);font-size:12.6px;margin-bottom:14px">배당 308종목 · 환율은 전일 종가 적용 · 배당소득세 반영</p>
+      <div class="go">열기 →</div>
+    </a>
+  </div>
+
+  <h2 class="sec">데이터</h2>
+  <p class="sec-dek">모든 도구가 같은 데이터를 씁니다.</p>
+  <div class="data-note">
+    <dl>
+      <dt>유니버스</dt><dd id="universe">지수·레버리지·인버스·채권·원자재·배당 ETF 및 개별주</dd>
+      <dt>기간</dt><dd id="period">—</dd>
+      <dt>가격 기준</dt><dd>🇺🇸 미국 = 수정주가(배당·분할 반영) · 🇰🇷 한국 = 액면분할만 반영(<strong>배당 미반영</strong>)</dd>
+      <dt>출처</dt><dd>🇺🇸 Yahoo Finance · 🇰🇷 KRX(pykrx / FinanceDataReader)</dd>
+      <dt>거래세</dt><dd>🇰🇷 <strong>개별주식만</strong> 증권거래세를 시점별로 적용합니다 (~2019 0.30% → 2025 0.15% → 2026~ 0.20%). <strong>ETF는 증권거래세 비대상</strong>이며, 레버리지·인버스·해외지수 ETF의 매매차익세(15.4%)는 과표기준가 데이터 미확보로 <strong>미반영</strong>입니다</dd>
+      <dt>금리</dt><dd>레버리지 차입비용용 <strong>^IRX(미국 13주 국채수익률)</strong> 2005~현재 — 실제 조달금리(SOFR+스프레드)의 대리지표. 국내 원화 조달금리는 미확보</dd>
+      <dt>배당</dt><dd>🇺🇸 미국 <strong>308종목</strong>의 배당락일별 주당 배당금 — 수정주가·원주가 차분에서 역산(검증 오차 0.008% 이하). 🇰🇷 한국은 원데이터가 배당 미반영이라 제공하지 않습니다</dd>
+      <dt>환율</dt><dd>USD/KRW 2004-11-30~2026-08-16 · <strong>전일 종가 적용</strong>(당일 종가는 주문 시점에 알 수 없으므로 미래참조 차단) · 환전 스프레드 미반영</dd>
+      <dt>갱신</dt><dd id="updated">—</dd>
+      <dt>신선도</dt><dd id="freshness">—</dd>
+      <dt>한계</dt><dd>🇰🇷 <strong>상장폐지 33종 포함</strong>(감사의견거절·상폐기준 등 소멸형, 목록에 <strong>[상폐]</strong> 표기) — 살아남은 종목만 보면 수익률이 부풀려지므로 사라진 쪽도 직접 돌려볼 수 있게 넣었습니다. 🇺🇸 미국은 아직 생존 종목만이라 <strong>생존 편향 존재</strong> · 한국은 KRX 공개API 제약으로 <strong>2014-05부터</strong>만 제공 · 액면분할 거래정지일은 제외 · 양도소득세·환전비용 미반영</dd>
+    </dl>
+  </div>
+
+  <div class="disclaimer">
+    <div class="lbl">면책 고지</div>
+    <p>본 사이트의 모든 도구는 과거 데이터를 이용한 <strong>시뮬레이션 계산기</strong>이며, 특정 종목이나 전략에 대한 <strong>투자 권유가 아닙니다.</strong> 과거 성과는 미래 수익을 보장하지 않으며, 실제 투자는 원금 손실이 발생할 수 있습니다. 투자 판단과 그 결과에 대한 책임은 이용자 본인에게 있습니다. 데이터는 무료 공개 소스 기반으로 오류가 포함될 수 있습니다.</p>
+  </div>
+
+  <footer>
+    <span>코다리 컴퍼니 · backtest-lab</span>
+    <span><a href="https://github.com/leehojun8450-netizen/backtest-lab">소스 코드</a></span>
+  </footer>
+</div>
+
+<script>
+// 데이터 현황을 manifest에서 읽어 표기 — 값이 문서와 어긋나지 않게 한다
+fetch("data/manifest.json", { cache: "no-store" })
+  .then(r => r.ok ? r.json() : null)
+  .then(m => {
+    if (!m) return;
+    const bars = m.tickers.reduce((a, t) => a + t.count, 0);
+    const byM = {};
+    m.tickers.forEach(t => (byM[t.market || "US"] ||= []).push(t));
+    const flag = { KR: "🇰🇷 한국", US: "🇺🇸 미국" };
+    document.getElementById("universe").textContent =
+      Object.entries(byM).map(([k, v]) => `${flag[k] || k} ${v.length}종목`).join(" · ")
+      + ` · 일봉 ${bars.toLocaleString()}건`;
+    document.getElementById("period").textContent =
+      Object.entries(byM).map(([k, v]) => {
+        const f = v.reduce((a, t) => t.first_date < a ? t.first_date : a, "9999");
+        const l = v.reduce((a, t) => t.last_date  > a ? t.last_date  : a, "0000");
+        return `${flag[k] || k} ${f} ~ ${l}`;
+      }).join(" · ");
+    document.getElementById("updated").textContent = (m.generated_at || "").slice(0, 10);
+
+    /* 데이터 신선도 — 낡은 데이터를 모른 채 쓰는 것이 가장 위험하다.
+       주말·공휴일을 감안해 영업일 기준으로 대략 판정한다. */
+    const latest = m.tickers.reduce((a, t) => t.last_date > a ? t.last_date : a, "0000");
+    const days = Math.floor((Date.now() - new Date(latest + "T00:00:00Z").getTime()) / 864e5);
+    const el = document.getElementById("freshness");
+    const cls = days <= 4 ? "ok" : days <= 10 ? "warn" : "bad";
+    const msg = days <= 4 ? "최신" : days <= 10 ? "다소 지연" : "오래됨 — 결과 해석에 주의";
+    el.innerHTML = `<span class="fresh ${cls}">최근 거래일 ${latest} · ${days}일 경과 · ${msg}</span>`;
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>
