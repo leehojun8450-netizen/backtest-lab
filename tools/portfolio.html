@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포트폴리오 시뮬레이터 — backtest-lab</title>
+<style>
+:root{
+  --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2;
+  --line:#d3d6cd; --line-2:#b7bcae;
+  --red:#9c3b32; --red-t:#f3e1de; --amber:#a47726; --amber-t:#f1e6d2;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif KR",serif;
+  --sans:-apple-system,"Segoe UI","Pretendard","Apple SD Gothic Neo","Noto Sans KR",Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Roboto Mono","D2Coding",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+    --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+    --red:#df8074; --red-t:#2c1e1c; --amber:#dbb15a; --amber-t:#2b2418; }
+}
+:root[data-theme="dark"]{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+  --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+  --red:#df8074; --red-t:#2c1e1c; --amber:#dbb15a; --amber-t:#2b2418; }
+:root[data-theme="light"]{ --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2; --line:#d3d6cd; --line-2:#b7bcae;
+  --red:#9c3b32; --red-t:#f3e1de; --amber:#a47726; --amber-t:#f1e6d2; }
+
+*{box-sizing:border-box;} html,body{margin:0;padding:0;}
+body{ background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:1120px; margin:0 auto; padding:0 20px 80px; }
+
+header.top{ border-bottom:1px solid var(--line); padding:34px 0 22px; margin-bottom:26px; }
+.eyebrow{ font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+.eyebrow::before{ content:""; width:20px; height:1px; background:var(--accent); }
+h1{ font-family:var(--serif); font-size:clamp(26px,3.4vw,36px); font-weight:600; margin:0 0 10px; }
+header.top p{ color:var(--soft); margin:0; max-width:66ch; font-size:14.5px; }
+a.back{ font-family:var(--mono); font-size:12px; color:var(--accent); text-decoration:none; }
+a.back:hover{ text-decoration:underline; }
+
+.panel{ background:var(--raised); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin-bottom:22px; }
+.panel-title{ font-family:var(--mono); font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); margin-bottom:16px; }
+.panel-title span{ text-transform:none; letter-spacing:0; }
+
+.presets{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+.presets button{ font-size:12.5px; padding:7px 13px; border:1px solid var(--line-2); border-radius:999px; background:var(--paper); color:var(--soft); cursor:pointer; }
+.presets button:hover{ border-color:var(--accent); color:var(--accent); }
+.presets button:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+
+.assets{ display:flex; flex-direction:column; gap:9px; }
+.arow{ display:grid; grid-template-columns:1fr 108px 34px; gap:9px; align-items:center; }
+.arow select,.arow input{ font-family:var(--mono); font-size:13.5px; padding:8px 10px; border:1px solid var(--line-2); border-radius:7px; background:var(--paper); color:var(--ink); width:100%; }
+.arow .wbox{ position:relative; }
+.arow .wbox::after{ content:"%"; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-family:var(--mono); font-size:12px; color:var(--faint); pointer-events:none; }
+.arow input[type="number"]{ padding-right:24px; text-align:right; }
+.arow button{ border:1px solid var(--line-2); background:var(--paper); color:var(--faint); border-radius:7px; height:36px; cursor:pointer; font-size:15px; line-height:1; }
+.arow button:hover{ color:var(--red); border-color:var(--red); }
+.addrow{ margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.addrow button{ font-size:13px; padding:8px 15px; border:1px dashed var(--line-2); border-radius:8px; background:transparent; color:var(--soft); cursor:pointer; }
+.addrow button:hover{ border-color:var(--accent); color:var(--accent); }
+.wsum{ font-family:var(--mono); font-size:12.5px; color:var(--faint); }
+.wsum.bad{ color:var(--amber); }
+
+.opt-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-top:22px; padding-top:20px; border-top:1px solid var(--line); }
+label.f{ display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--soft); }
+label.f .hint{ font-size:11px; color:var(--faint); }
+select,input[type="number"],input[type="date"]{ font-family:var(--mono); font-size:13.5px; padding:8px 10px; border:1px solid var(--line-2); border-radius:7px; background:var(--paper); color:var(--ink); width:100%; }
+select:focus,input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+
+.run-row{ display:flex; gap:12px; align-items:center; margin-top:22px; flex-wrap:wrap; }
+button.run{ font-weight:600; font-size:14.5px; padding:11px 26px; border:0; border-radius:8px; background:var(--accent); color:var(--paper); cursor:pointer; }
+button.run:hover{ background:var(--accent-2); }
+button.run:disabled{ opacity:.5; cursor:not-allowed; }
+button.run:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+.status{ font-family:var(--mono); font-size:12px; color:var(--faint); }
+.status.err{ color:var(--red); }
+
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+.kpi{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper); }
+.kpi .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); }
+.kpi .v{ font-family:var(--mono); font-size:22px; font-variant-numeric:tabular-nums; font-weight:600; margin-top:5px; }
+.kpi .s{ font-size:11.5px; color:var(--faint); margin-top:2px; }
+.v.pos{ color:var(--accent); } .v.neg{ color:var(--red); } .v.warn{ color:var(--amber); }
+
+canvas{ width:100%; display:block; border-radius:8px; }
+.chart-legend{ display:flex; gap:16px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:10px; }
+.chart-legend i{ display:inline-block; width:11px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+
+.tbl-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+table{ border-collapse:collapse; width:100%; min-width:560px; font-size:13px; }
+th,td{ padding:10px 14px; text-align:left; border-bottom:1px solid var(--line); }
+thead th{ font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); background:var(--tint); white-space:nowrap; }
+tbody tr:last-child td{ border-bottom:none; }
+td.num{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+tr.best td{ background:color-mix(in srgb,var(--tint) 60%,transparent); font-weight:600; }
+tr.cur td:first-child::before{ content:"▶ "; color:var(--accent); }
+
+.note{ border:1px solid var(--line-2); border-left:3px solid var(--amber); border-radius:8px; padding:14px 18px; margin-top:18px; background:var(--raised); }
+.note .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
+.note p{ margin:0; font-size:13px; color:var(--soft); line-height:1.6; }
+.note.risk{ border-left-color:var(--red); } .note.risk .lbl{ color:var(--red); }
+.note.good{ border-left-color:var(--accent); } .note.good .lbl{ color:var(--accent); }
+
+details.assump{ margin-top:18px; border:1px solid var(--line); border-radius:8px; background:var(--raised); }
+details.assump summary{ cursor:pointer; padding:12px 18px; font-family:var(--mono); font-size:12px; color:var(--soft); }
+details.assump summary:focus-visible{ outline:2px solid var(--accent); }
+details.assump .body{ padding:0 18px 16px; font-family:var(--mono); font-size:11.5px; color:var(--faint); line-height:1.8; white-space:pre-wrap; }
+
+footer.foot{ margin-top:40px; padding-top:22px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--faint); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.hidden{ display:none !important; }
+@media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">backtest-lab · 도구 2</div>
+    <h1>포트폴리오 시뮬레이터</h1>
+    <p>여러 자산을 정한 비중으로 담고 주기적으로 리밸런싱했을 때의 성과·최대낙폭·회복 경로를 검증합니다. <strong>"리밸런싱이 정말 이득이었는가"</strong>를 거래비용까지 반영해 주기별로 나란히 비교합니다.</p>
+    <p style="margin-top:12px"><a class="back" href="../index.html">← 도구 목록</a></p>
+  </header>
+
+  <section class="panel">
+    <div class="panel-title">포트폴리오 구성</div>
+
+    <div class="presets" id="presets"></div>
+
+    <div class="assets" id="assets"></div>
+    <div class="addrow">
+      <button type="button" id="addBtn">＋ 자산 추가</button>
+      <input type="search" id="tickSearch" placeholder="티커·종목번호·종목명으로 검색 (예: SPY, 005930, 배당) — 모든 행에 적용"
+             style="flex:1;min-width:180px">
+      <span class="wsum" id="wsum">비중 합계 —</span>
+    </div>
+
+    <div class="opt-grid">
+      <label class="f">초기 투자금 <span class="hint" id="curHint">KRW</span>
+        <input type="text" id="capital" value="10,000,000" inputmode="numeric" autocomplete="off"
+               style="text-align:right">
+        <span class="hint" id="capitalEcho" style="display:block;margin-top:4px;text-align:right"></span>
+      </label>
+      <label class="f">매월 추가납입 <span class="hint">0이면 거치식</span>
+        <input type="text" id="monthly" value="0" inputmode="numeric" autocomplete="off"
+               style="text-align:right">
+        <span class="hint" id="monthlyEcho" style="display:block;margin-top:4px;text-align:right"></span>
+      </label>
+      <label class="f">리밸런싱 주기
+        <select id="rebal">
+          <option value="none">하지 않음 (방치)</option>
+          <option value="M">매월</option>
+          <option value="Q">분기</option>
+          <option value="H">반기</option>
+          <option value="Y" selected>연 1회</option>
+          <option value="B5">밴드 ±5%p 이탈 시</option>
+          <option value="B10">밴드 ±10%p 이탈 시</option>
+        </select>
+      </label>
+      <label class="f">비용 시나리오
+        <select id="costSet">
+          <option value="opt">낙관 (우대 수수료)</option>
+          <option value="base" selected>기본 (온라인 표준)</option>
+          <option value="cons">보수 (비우대)</option>
+        </select>
+      </label>
+      <label class="f">시작일
+        <input type="date" id="from" value="2015-01-01">
+      </label>
+      <label class="f">종료일
+        <input type="date" id="to">
+      </label>
+    </div>
+
+    <div class="run-row">
+      <button class="run" id="runBtn" disabled>시뮬레이션 실행</button>
+      <span class="status" id="status">데이터 준비 중…</span>
+    </div>
+  </section>
+
+  <div id="results" class="hidden">
+
+    <section class="panel">
+      <div class="panel-title">결과 요약 <span>— 선택한 리밸런싱 주기 기준</span></div>
+      <div class="kpi-grid" id="kpis"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">리밸런싱이 이득이었는가 <span>— 같은 포트폴리오, 주기만 다르게</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>리밸런싱</th><th class="num">최종 자산</th><th class="num">운용수익률(TWR)</th>
+          <th class="num">CAGR</th><th class="num">MDD</th><th class="num">연변동성</th>
+          <th class="num">매매</th><th class="num">누적비용</th>
+        </tr></thead>
+        <tbody id="rebalBody"></tbody>
+      </table></div>
+      <div class="note risk" id="delistWarn" style="display:none;border-width:2px">
+        <div class="lbl">☠️ 상장폐지 종목 포함 — 생존편향 표본</div>
+        <p id="delistText"></p>
+      </div>
+      <div class="note risk" id="wipeNote" style="display:none;border-width:2px">
+        <div class="lbl">☠️ 전멸 경고 — 이 구성에서 리밸런싱은 자산을 갈아 넣습니다</div>
+        <p id="wipeText"></p>
+      </div>
+      <div class="note" id="verdictNote">
+        <div class="lbl">판정</div>
+        <p id="verdictText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Walk-Forward 검증 <span>— 학습구간 1위 주기가 다음 구간에서도 통했나</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>#</th><th>학습구간</th><th>학습 1위</th><th class="num">학습 TWR</th>
+          <th>검증구간</th><th class="num">검증 TWR</th><th class="num">검증 순위</th>
+          <th>실제 1위</th><th class="num">놓친 폭</th><th class="num">6종 격차</th>
+        </tr></thead>
+        <tbody id="wfBody"></tbody>
+      </table></div>
+      <div class="note risk" id="wfNote">
+        <div class="lbl" id="wfLbl">과최적화 진단</div>
+        <p id="wfText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">자산 곡선 및 낙폭 <span>— 세로축 로그 스케일</span></div>
+      <canvas id="chart" height="380"></canvas>
+      <div class="chart-legend">
+        <span><i style="background:var(--accent)"></i>선택한 리밸런싱</span>
+        <span><i style="background:var(--amber)"></i>리밸런싱 없음(방치)</span>
+        <span><i style="background:var(--red)"></i>낙폭</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">자산별 기여 <span>— 기간 중 개별 성과와 최종 비중</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>자산</th><th class="num">목표 비중</th><th class="num">최종 비중</th>
+          <th class="num">개별 수익률</th><th class="num">개별 MDD</th>
+        </tr></thead>
+        <tbody id="assetBody"></tbody>
+      </table></div>
+      <div class="note" id="driftNote" style="display:none">
+        <div class="lbl">비중 쏠림</div>
+        <p id="driftText"></p>
+      </div>
+    </section>
+
+    <details class="assump">
+      <summary>재현 정보 — 이 결과를 만든 가정 전문 (클릭하여 펼치기)</summary>
+      <div class="body" id="assumpBody"></div>
+    </details>
+  </div>
+
+  <div class="note risk" style="margin-top:26px">
+    <div class="lbl">면책 고지</div>
+    <p>본 도구는 과거 데이터를 이용한 시뮬레이션이며 <strong>투자 권유가 아닙니다.</strong> 과거 성과는 미래 수익을 보장하지 않으며, 실제 투자는 원금 손실이 발생할 수 있습니다. 데이터는 무료 공개 소스 기반으로 오류가 있을 수 있고, 상장폐지 종목은 유니버스에 포함되어 있지 않습니다(생존 편향). <strong>국내 종목은 배당이 반영되지 않아</strong> 실제보다 성과가 낮게 계산되며, 양도소득세·환전비용도 미반영입니다.</p>
+  </div>
+
+  <footer class="foot">
+    <span>코다리 컴퍼니 · backtest-lab</span>
+    <span id="dataStamp"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   매도 시 부과금 — 시점에 따라 달라진다 (infinite-buy.html과 동일 규격)
+   국내 증권거래세는 12년간 0.30% -> 0.15% -> 0.20%로 널뛰었다.
+   리밸런싱은 매도를 동반하므로 이 세율이 성과를 직접 갉아먹는다.
+   ============================================================ */
+const KR_SELL_TAX_TABLE = [
+  { from:"1900-01-01", rate:0.0030, label:"~2019.6.2" },
+  { from:"2019-06-03", rate:0.0025, label:"2019.6.3~2020" },
+  { from:"2021-01-01", rate:0.0023, label:"2021~2022" },
+  { from:"2023-01-01", rate:0.0020, label:"2023" },
+  { from:"2024-01-01", rate:0.0018, label:"2024" },
+  { from:"2024-12-27", rate:0.0015, label:"2025" },
+  { from:"2025-12-29", rate:0.0020, label:"2026~" },
+];
+const US_SEC_FEE_FROM = "2026-04-04", US_SEC_FEE = 0.0000206;
+/* ⚠️ 2026-08-05 수정 — 시장만 보고 과세하던 버그 (infinite-buy.html과 동일 규격)
+   국내 상장 ETF는 증권거래세 비대상이며, 레버리지·인버스의 세후 계산에는
+   과표기준가 시계열이 필요한데 우리에겐 없다. -> ETF는 0으로 두고 명시한다. */
+/* 과세 클래스 — 2026-08-05 공식 출처 검증 결과 반영
+   kr_equity     개별주식      : 매도 시 증권거래세 (증권거래세법 제2조 '주권등의 양도')
+   kr_stock_etf  국내주식형 ETF : 거래세 없음 + 매매차익 비과세
+   other_etf     기타 ETF      : 거래세 없음. 매매차익은 배당소득 15.4% 과세대상이나
+                                 과세표준 = Min(실매매차익, 과표기준가 상승분)이라
+                                 과표기준가 시계열 없이는 계산 불가 -> 미반영하고 명시한다.
+                                 (레버리지·인버스는 국내지수 기반이라도 '주식-파생형'이라
+                                  국내주식형 비과세 대상이 아니다)
+   us            미국          : 매도 시 SEC 수수료만. 양도소득세(22%)는 미반영. */
+function sellLevyFor(taxClass, dateStr){
+  if (taxClass === "kr_equity"){
+    let r = 0;
+    for (const row of KR_SELL_TAX_TABLE) if (dateStr >= row.from) r = row.rate;
+    return r;
+  }
+  if (taxClass === "us") return dateStr >= US_SEC_FEE_FROM ? US_SEC_FEE : 0;
+  return 0;                       // kr_stock_etf · other_etf -> 거래세 없음
+}
+const TAX_NOTE = {
+  kr_equity:    "개별주식 — 매도 시 증권거래세 시점별 적용. 소액주주 양도소득세는 비과세라 미반영.",
+  kr_stock_etf: "국내주식형 ETF — 증권거래세·매매차익 모두 비과세.",
+  other_etf:    "⚠️ 기타 ETF(레버리지·인버스·해외지수) — 증권거래세는 없으나 매매차익에 배당소득세 15.4%가 부과됩니다. 과세표준이 과표기준가 기준이라 데이터 없이 계산할 수 없어 미반영했습니다. 실제 세후 수익은 이보다 낮습니다.",
+  us:           "미국 — 매도 시 SEC 수수료만 반영. 양도소득세(연 250만원 공제 후 22%)·환전비용은 미반영.",
+};
+const SCENARIO_SETS = {
+  US: { opt:{name:"낙관",feeRate:0.0007,slipRate:0.0002}, base:{name:"기본",feeRate:0.0010,slipRate:0.0005}, cons:{name:"보수",feeRate:0.0025,slipRate:0.0010} },
+  KR: { opt:{name:"낙관",feeRate:0.000036,slipRate:0.0005}, base:{name:"기본",feeRate:0.00015,slipRate:0.0010}, cons:{name:"보수",feeRate:0.0015,slipRate:0.0020} },
+};
+
+/* ============================================================
+   포트폴리오 시뮬레이션 엔진
+   ------------------------------------------------------------
+   - 여러 자산의 거래일을 교집합으로 정렬한다(한 종목이라도 없는 날은 제외)
+   - 리밸런싱은 매도->매수 순으로 처리하며, 매도에는 거래세가 붙는다
+   - 적립식은 매월 첫 거래일에 목표비중대로 배분 매수한다
+   경로 의존이므로 시간축 순차 루프가 불가피하다.
+   ============================================================ */
+function simulatePortfolio(dates, priceCols, opts){
+  const { weights, capital, monthlyAdd, rebalMode, feeRate, slipRate, market } = opts;
+  const cats = opts.cats || [];                 // 자산별 과세 클래스
+  const n = dates.length, k = weights.length;
+  const shares = new Array(k).fill(0);
+  let cash = 0, invested = capital, totalFee = 0, totalTax = 0, trades = 0, rebalCount = 0;
+  const equity = new Array(n), ddSeries = new Array(n);
+  /* ⚠️ 2026-08-05 추가 — 적립식 MDD·변동성 왜곡 수정
+     월 납입금을 평가액에 더한 뒤 그 증감률로 MDD를 재면, 외부 현금유입이
+     투자수익처럼 섞여 납입일마다 수익률이 인위적으로 뛴다.
+     -> 단위가(unit price) 시계열을 따로 만든다. 납입 시 '현재 단위가로 새 좌수를
+        발행'하므로 단위가는 튀지 않는다. 이것이 TWR(시간가중수익률)이며,
+        MDD·변동성은 반드시 이 값으로 계산해야 한다. */
+  let units = 1;                       // 최초 1좌 발행
+  const unitPx = new Array(n);         // 단위가 시계열 (TWR)
+
+  const buy = (i, j, amount) => {
+    if (amount <= 0) return;
+    const px = priceCols[j][i] * (1 + slipRate);
+    const fee = amount * feeRate;
+    shares[j] += (amount - fee) / px;
+    cash -= amount; totalFee += fee; trades++;
+  };
+  const sell = (i, j, amount) => {
+    if (amount <= 0) return;
+    const px = priceCols[j][i] * (1 - slipRate);
+    const qty = Math.min(shares[j], amount / px);
+    const gross = qty * px;
+    const fee = gross * feeRate, tax = gross * sellLevyFor(cats[j], dates[i]);
+    shares[j] -= qty; cash += gross - fee - tax;
+    totalFee += fee; totalTax += tax; trades++;
+  };
+  const allocate = (i, amount) => {           // 목표비중대로 나눠 매수
+    for (let j = 0; j < k; j++) buy(i, j, amount * weights[j]);
+  };
+  const rebalance = (i, total) => {
+    // 초과분 먼저 매도해 현금을 만든 뒤, 부족분을 매수한다
+    for (let j = 0; j < k; j++){
+      const cur = shares[j] * priceCols[j][i], tgt = total * weights[j];
+      if (cur > tgt) sell(i, j, cur - tgt);
+    }
+    for (let j = 0; j < k; j++){
+      const cur = shares[j] * priceCols[j][i], tgt = total * weights[j];
+      if (tgt > cur) buy(i, j, Math.min(tgt - cur, Math.max(0, cash)));
+    }
+    rebalCount++;
+  };
+
+  cash = capital;
+  allocate(0, capital);
+
+  let lastMonth = dates[0].slice(0, 7), lastRebalKey = rebalKey(dates[0], rebalMode);
+  for (let i = 0; i < n; i++){
+    const day = dates[i];
+
+    if (i > 0){
+      const mo = day.slice(0, 7);
+      if (mo !== lastMonth){                  // 매월 첫 거래일
+        lastMonth = mo;
+        if (monthlyAdd > 0){
+          // 납입 직전 단위가로 새 좌수를 발행해야 단위가가 튀지 않는다
+          let navBefore = cash;
+          for (let j = 0; j < k; j++) navBefore += shares[j] * priceCols[j][i];
+          const pxNow = navBefore / units;
+          units += monthlyAdd / pxNow;
+          cash += monthlyAdd; invested += monthlyAdd; allocate(i, monthlyAdd);
+        }
+      }
+      // 리밸런싱 판정
+      let total = cash;
+      for (let j = 0; j < k; j++) total += shares[j] * priceCols[j][i];
+      if (rebalMode.startsWith("B")){
+        const band = (rebalMode === "B5" ? 0.05 : 0.10);
+        let drift = 0;
+        for (let j = 0; j < k; j++) drift = Math.max(drift, Math.abs(shares[j] * priceCols[j][i] / total - weights[j]));
+        if (drift > band) rebalance(i, total);
+      } else if (rebalMode !== "none"){
+        const key = rebalKey(day, rebalMode);
+        if (key !== lastRebalKey){ lastRebalKey = key; rebalance(i, total); }
+      }
+    }
+
+    let eq = cash;
+    for (let j = 0; j < k; j++) eq += shares[j] * priceCols[j][i];
+    equity[i] = eq;
+    unitPx[i] = eq / units;               // TWR 기준 단위가
+  }
+
+  // 성과 지표
+  // MDD·낙폭은 단위가(TWR)로 계산한다 — 납입금이 섞인 평가액으로 재면 왜곡된다
+  let peak = -Infinity, mdd = 0, mddEnd = 0, ddStart = 0, mddStart = 0;
+  for (let i = 0; i < n; i++){
+    if (unitPx[i] > peak){ peak = unitPx[i]; ddStart = i; }
+    const dd = peak > 0 ? (unitPx[i] / peak - 1) * 100 : 0;
+    ddSeries[i] = dd;
+    if (dd < mdd){ mdd = dd; mddEnd = i; mddStart = ddStart; }
+  }
+  let recovery = null;
+  if (mdd < 0){
+    const pv = unitPx[mddStart];
+    for (let i = mddEnd; i < n; i++) if (unitPx[i] >= pv){ recovery = i - mddEnd; break; }
+  }
+  // 연 변동성 (일간 로그수익률 표준편차 × √252)
+  let s = 0, s2 = 0, m = 0;
+  for (let i = 1; i < n; i++){ const r = Math.log(unitPx[i] / unitPx[i - 1]); s += r; s2 += r * r; m++; }
+  const mean = m ? s / m : 0;
+  const vol = m > 1 ? Math.sqrt(Math.max(0, s2 / m - mean * mean)) * Math.sqrt(252) * 100 : 0;
+
+  const finalEq = equity[n - 1];
+  const years = n ? yearsBetween(dates[0], dates[n - 1]) : 0;
+  // 적립식이면 단순 수익률이 왜곡되므로 '납입원금 대비'로 계산한다
+  const totalRet = (finalEq / invested - 1) * 100;
+  // 단위가 기준이면 적립식에서도 CAGR이 성립한다(외부 현금유입 영향 제거됨)
+  const twrTotal = (unitPx[n - 1] / unitPx[0] - 1) * 100;
+  const cagr = years > 0.5 ? (Math.pow(unitPx[n - 1] / unitPx[0], 1 / years) - 1) * 100 : null;
+
+  const finalWeights = [];
+  for (let j = 0; j < k; j++) finalWeights.push(shares[j] * priceCols[j][n - 1] / finalEq);
+
+  return { equity, unitPx, ddSeries, dates, finalEq, invested, totalRet, twrTotal, cagr, mdd, recovery,
+           mddEndDate: dates[mddEnd] || null, vol, trades, rebalCount,
+           totalFee, totalTax, totalCost: totalFee + totalTax, finalWeights, years, market };
+}
+function rebalKey(d, mode){
+  const y = d.slice(0, 4), mo = +d.slice(5, 7);
+  if (mode === "M") return d.slice(0, 7);
+  if (mode === "Q") return y + "Q" + Math.ceil(mo / 3);
+  if (mode === "H") return y + "H" + Math.ceil(mo / 6);
+  return y;                                  // Y
+}
+
+/* ---------------- 데이터 ---------------- */
+let MANIFEST = null; const CACHE = new Map();
+async function loadManifest(){
+  const r = await fetch("../data/manifest.json", { cache:"no-store" });
+  if (!r.ok) throw new Error("manifest " + r.status);
+  return r.json();
+}
+async function loadTicker(t){
+  if (CACHE.has(t)) return CACHE.get(t);
+  const r = await fetch(`../data/${t}.json`, { cache:"no-store" });
+  if (!r.ok) throw new Error(`${t} ${r.status}`);
+  const j = await r.json(); CACHE.set(t, j); return j;
+}
+
+/* ---------------- 표시 헬퍼 ---------------- */
+const $ = id => document.getElementById(id);
+const CUR = { code:"KRW" };
+function money(v){
+  const n = Math.round(v);
+  if (CUR.code === "KRW"){
+    if (Math.abs(n) >= 1e8) return (n / 1e8).toFixed(2) + "억원";
+    if (Math.abs(n) >= 1e6) return Math.round(n / 1e4).toLocaleString() + "만원";
+    if (Math.abs(n) >= 1e4) return (n / 1e4).toFixed(1) + "만원";
+    return n.toLocaleString() + "원";
+  }
+  return "$" + n.toLocaleString();
+}
+function fmtPct(v){ return (v >= 0 ? "+" : "") + v.toFixed(1) + "%"; }
+
+/* CAGR용 경과 연수 — 거래일 수 ÷ 252가 아니라 실제 달력 기간으로 계산한다.
+   거래정지·공통거래일 교집합으로 날짜가 빠지면 252 나누기는 기간을 과소평가하고,
+   그만큼 CAGR이 과대 계산된다. (2026-08-05 수정) */
+function yearsBetween(d0, d1){
+  const ms = new Date(d1 + "T00:00:00Z") - new Date(d0 + "T00:00:00Z");
+  return ms / (365.2425 * 864e5);
+}
+
+function cls(v){ return v > 0 ? "pos" : v < 0 ? "neg" : ""; }
+
+/* ---------------- 프리셋 ---------------- */
+const PRESETS = [
+  { name:"🇰🇷 주식60 / 채권40", items:[["069500",60],["114800",0],["133690",40]] },
+  { name:"🇰🇷 코스피 + 나스닥 반반", items:[["069500",50],["133690",50]] },
+  { name:"🇰🇷 삼성전자 + 지수", items:[["005930",50],["069500",50]] },
+  { name:"🇺🇸 주식60 / 채권40", items:[["SPY",60],["IEF",40]] },
+  { name:"🇺🇸 올웨더 라이트", items:[["SPY",30],["TLT",40],["IEF",15],["GLD",15]] },
+  { name:"🇺🇸 배당 포트폴리오", items:[["SCHD",50],["VYM",30],["TLT",20]] },
+];
+
+/* ---------------- 자산 행 UI ---------------- */
+function optionsHTML(){
+  if (!MANIFEST) return "";
+  const labels = { index:"지수 ETF", sector:"섹터 ETF", intl:"해외 ETF", factor:"팩터 ETF",
+                   leveraged:"레버리지 ETF", inverse:"인버스 ETF", volatility:"변동성 ETF",
+                   bond:"채권", commodity:"원자재", reit:"리츠", dividend:"배당 ETF",
+                   equity:"개별주", delisted:"☠️ 상장폐지 (생존편향 표본)" };
+  const mk = { KR:"🇰🇷 한국", US:"🇺🇸 미국" };
+  const byM = {};
+  MANIFEST.tickers.forEach(t => { const m = t.market || "US"; ((byM[m] ||= {})[t.category] ||= []).push(t); });
+  return ["KR","US"].filter(m => byM[m]).map(m =>
+    Object.entries(byM[m]).map(([c, list]) =>
+      `<optgroup label="${mk[m]} · ${labels[c] || c}">` +
+      list.map(t => `<option value="${t.ticker}" data-market="${m}">${t.ticker} — ${t.name}</option>`).join("") +
+      `</optgroup>`).join("")).join("");
+}
+function addRow(ticker, weight){
+  const div = document.createElement("div");
+  div.className = "arow";
+  div.innerHTML = `<select class="a-t">${optionsHTML()}</select>
+    <span class="wbox"><input type="number" class="a-w" min="0" max="100" step="1" value="${weight ?? 25}"></span>
+    <button type="button" title="제거">×</button>`;
+  $("assets").appendChild(div);
+  const q = $("tickSearch") ? $("tickSearch").value : "";
+  if (q.trim()) applyTickerFilter(div.querySelector(".a-t"), q);
+  if (ticker) div.querySelector(".a-t").value = ticker;
+  div.querySelector("button").addEventListener("click", () => { div.remove(); syncWeights(); });
+  div.querySelector(".a-w").addEventListener("input", syncWeights);
+  div.querySelector(".a-t").addEventListener("change", syncWeights);
+  syncWeights();
+}
+function rows(){ return [...document.querySelectorAll("#assets .arow")]; }
+function syncWeights(){
+  const rs = rows();
+  const sum = rs.reduce((a, r) => a + (Number(r.querySelector(".a-w").value) || 0), 0);
+  const el = $("wsum");
+  el.textContent = `비중 합계 ${sum}%` + (Math.abs(sum - 100) > 0.01 ? " → 100%로 자동 환산" : "");
+  el.className = "wsum" + (Math.abs(sum - 100) > 0.01 ? " bad" : "");
+  // 통화: 첫 자산의 시장을 따른다
+  const first = rs[0]?.querySelector(".a-t");
+  const m = first?.selectedOptions[0]?.dataset.market || "KR";
+  CUR.code = m === "KR" ? "KRW" : "USD";
+  $("curHint").textContent = CUR.code;
+  const cap = $("capital"), mon = $("monthly");
+  if (!cap.dataset.touched) setAmount("capital", m === "KR" ? 10000000 : 100000);
+  else amtEcho("capital");             // 통화가 바뀌면 읽기 단위도 다시 쓴다
+  amtEcho("monthly");
+}
+function applyPreset(p){
+  $("assets").innerHTML = "";
+  p.items.filter(([, w]) => w > 0).forEach(([t, w]) => addRow(t, w));
+}
+
+/* ---------------- 차트 ---------------- */
+function drawChart(cv, r, bench){
+  const dpr = window.devicePixelRatio || 1, H = 380;
+  const W = cv.clientWidth || cv.parentElement?.clientWidth || 900;   // 레이아웃 전이면 0이 되므로 대체값
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const cs = getComputedStyle(document.documentElement), C = k => cs.getPropertyValue(k).trim();
+  const accent = C("--accent"), red = C("--red"), line = C("--line"), faint = C("--faint"), amber = C("--amber");
+  const padL = 74, padR = 20, padT = 14, padB = 26, eqH = 250;
+  const ddTop = padT + eqH + 22, ddH = H - ddTop - padB, n = r.equity.length;
+  if (!n) return;
+  const xs = i => padL + (W - padL - padR) * (i / (n - 1 || 1));
+  const all = bench ? r.equity.concat(bench.equity) : r.equity;
+  const lo = Math.max(1, Math.min(...all)), hi = Math.max(...all);
+  const lb = Math.log(lo / 1.12), lt = Math.log(hi * 1.12);
+  const ys = v => padT + eqH * (1 - (Math.log(Math.max(v, 1)) - lb) / (lt - lb || 1));
+
+  g.font = "11px " + C("--mono"); g.textAlign = "right"; g.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++){
+    const v = Math.exp(lb + (lt - lb) * i / 4), y = ys(v);
+    g.strokeStyle = line; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke();
+    g.fillStyle = faint; g.fillText(money(v), padL - 8, y);
+  }
+  g.strokeStyle = faint; g.setLineDash([3, 4]);
+  g.beginPath(); g.moveTo(padL, ys(r.equity[0])); g.lineTo(W - padR, ys(r.equity[0])); g.stroke();
+  g.setLineDash([]);
+
+  if (bench){
+    g.strokeStyle = amber; g.lineWidth = 1.5; g.setLineDash([5, 3]); g.beginPath();
+    for (let i = 0; i < n && i < bench.equity.length; i++){ const x = xs(i), y = ys(bench.equity[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke(); g.setLineDash([]);
+  }
+  g.strokeStyle = accent; g.lineWidth = 1.9; g.lineJoin = "round"; g.beginPath();
+  for (let i = 0; i < n; i++){ const x = xs(i), y = ys(r.equity[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+
+  const ddMin = Math.min(...r.ddSeries, -1), dys = v => ddTop + ddH * (v / ddMin);
+  g.strokeStyle = line; g.beginPath(); g.moveTo(padL, ddTop); g.lineTo(W - padR, ddTop); g.stroke();
+  g.fillStyle = red; g.globalAlpha = .28; g.beginPath(); g.moveTo(xs(0), ddTop);
+  for (let i = 0; i < n; i++) g.lineTo(xs(i), dys(r.ddSeries[i]));
+  g.lineTo(xs(n - 1), ddTop); g.closePath(); g.fill(); g.globalAlpha = 1;
+  g.fillStyle = faint; g.textAlign = "right";
+  g.fillText(ddMin.toFixed(0) + "%", padL - 8, ddTop + ddH); g.fillText("0%", padL - 8, ddTop + 4);
+  g.textAlign = "center"; g.textBaseline = "top";
+  [0, Math.floor(n / 2), n - 1].forEach(i => { if (r.dates[i]) g.fillText(r.dates[i].slice(0, 7), xs(i), H - padB + 6); });
+}
+
+/* ============================================================
+   Walk-Forward 검증 (2026-08-06) — 무한매수법 도구에서 이식
+   ------------------------------------------------------------
+   이 도구의 "튜닝 가능한 파라미터"는 리밸런싱 주기 6종이다.
+   위 표가 "6종이 이만큼 갈린다"를 보여준다면, 이건 그다음 질문에 답한다:
+       "학습구간에서 1위였던 주기가, 다음 구간에서도 통했는가?"
+
+   [외부 검토 반영 — RESPONSE-001, Gemini]
+     · Rolling WF (Anchored보다 국면 적응력 검증에 적합)
+     · IS:OS = 70:30 (Pardo 2008, Ch.7)
+     · 스텝 수 W <= 5
+     · Clean Slate — 검증구간은 초기자본·목표비중으로 새로 시작한다.
+       학습구간의 보유 상태가 넘어오면 데이터 누수가 된다.
+
+   순위는 TWR(운용수익률)로 매긴다. 최종 자산은 납입 타이밍이 섞여 있어
+   주기 간 비교 지표로 부적절하다.
+   ============================================================ */
+const WF_MODES = ["none", "Y", "H", "Q", "M", "B5"];
+const WF_IS_RATIO = 0.7;
+
+function sweepModes(dates, priceCols, opts){
+  return WF_MODES.map(mode => ({
+    mode, twr: simulatePortfolio(dates, priceCols, { ...opts, rebalMode: mode }).twrTotal,
+  }));
+}
+
+function computeWalkForwardPf(dates, priceCols, opts){
+  const W = 5, n = dates.length;
+  const osLen = Math.floor(n / (W + WF_IS_RATIO / (1 - WF_IS_RATIO)));
+  const isLen = Math.floor(osLen * WF_IS_RATIO / (1 - WF_IS_RATIO));
+  if (osLen < 30 || isLen < 60) return null;
+
+  const cut = (a, b) => [dates.slice(a, b), priceCols.map(c => c.slice(a, b))];
+  const steps = [];
+  for (let k = 0; k < W; k++){
+    const a = isLen + k * osLen, b = Math.min(a + osLen, n);
+    if (b - a < 30) break;
+
+    const [isD, isP] = cut(Math.max(0, a - isLen), a);
+    const pick = sweepModes(isD, isP, opts).reduce((x, y) => y.twr > x.twr ? y : x);
+
+    const [osD, osP] = cut(a, b);                       // Clean Slate — 새 자본
+    const os = sweepModes(osD, osP, opts);
+    const sorted = [...os].sort((x, y) => y.twr - x.twr);
+    const got = os.find(x => x.mode === pick.mode);
+
+    /* 순위만으로는 거짓말이 된다.
+       6종의 성과 격차가 0.1%p인데 "1위를 맞췄다"고 말하면 잡음을 실력으로 포장하는 것이다.
+       구간 내 최고-최저 격차와, 학습 1위를 따라서 실제로 놓친 폭을 같이 기록한다. */
+    const spread = sorted[0].twr - sorted[sorted.length - 1].twr;
+    steps.push({
+      isFrom: isD[0], isTo: isD[isD.length - 1], osFrom: osD[0], osTo: osD[osD.length - 1],
+      pick: pick.mode, isTwr: pick.twr, osTwr: got.twr,
+      osRank: sorted.findIndex(x => x.mode === pick.mode) + 1,
+      osBest: sorted[0].twr, osBestMode: sorted[0].mode,
+      osSpread: spread, gap: sorted[0].twr - got.twr,
+      osMedian: (sorted[Math.floor((sorted.length - 1) / 2)].twr + sorted[Math.ceil((sorted.length - 1) / 2)].twr) / 2,
+    });
+  }
+  if (!steps.length) return null;
+
+  const N = WF_MODES.length;
+  const avg = f => steps.reduce((a, s) => a + f(s), 0) / steps.length;
+  return { steps, isLen, osLen, nCombo: N, randomExpect: (N + 1) / 2,
+           avgRank: avg(s => s.osRank), beat: steps.filter(s => s.osTwr > s.osMedian).length,
+           flip: steps.filter(s => s.pick !== s.osBestMode).length,
+           avgSpread: avg(s => s.osSpread), maxSpread: Math.max(...steps.map(s => s.osSpread)),
+           avgGap: avg(s => s.gap) };
+}
+
+/* ============================================================
+   자산 구성 진단 (2026-08-06)
+   ------------------------------------------------------------
+   왜 필요한가 — 실측으로 확인된 사실:
+     같은 3자산이라도 리밸런싱 주기별 성과 격차가
+       주식만(SPY/QQQ/DIA)        0.6%p
+       주식+채권+금               1.7%p
+       레버리지+채권+금          16.1%p
+       레버리지+인버스+금        29.9%p   (매월 리밸런싱 시 TWR 0% — 전멸)
+     로 50배 벌어진다. 자산 "개수"는 무관했다(2->9자산에서 격차 3.7->2.3%p로 감소).
+     결정하는 것은 **변동성과 상관관계**다.
+
+   따라서 "주기는 상관없다"는 결론은 이 구성에 한정된다는 것을 반드시 함께 말해야 한다.
+   ============================================================ */
+function assetProfile(priceCols){
+  const rets = priceCols.map(col => {
+    const r = [];
+    for (let i = 1; i < col.length; i++){
+      if (col[i] > 0 && col[i-1] > 0) r.push(Math.log(col[i] / col[i-1]));
+    }
+    return r;
+  });
+  const mean = a => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+  const sd = a => { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) ** 2))); };
+  const vols = rets.map(r => sd(r) * Math.sqrt(252) * 100);
+
+  let sum = 0, cnt = 0;
+  for (let i = 0; i < rets.length; i++) for (let j = i + 1; j < rets.length; j++){
+    const a = rets[i], b = rets[j], n = Math.min(a.length, b.length);
+    const ma = mean(a.slice(0, n)), mb = mean(b.slice(0, n));
+    let cov = 0, va = 0, vb = 0;
+    for (let k = 0; k < n; k++){ const x = a[k] - ma, y = b[k] - mb; cov += x * y; va += x * x; vb += y * y; }
+    if (va > 0 && vb > 0){ sum += cov / Math.sqrt(va * vb); cnt++; }
+  }
+  return { maxVol: Math.max(...vols), avgVol: mean(vols), avgCorr: cnt ? sum / cnt : null, n: priceCols.length };
+}
+
+/* ============================================================
+   금액 입력 — 천단위 콤마 + 단위 읽기 (2026-08-06)
+   ------------------------------------------------------------
+   input[type=number]는 콤마를 넣을 수 없다. 1000만원을 "10000000"으로 보면
+   0을 몇 개 쳤는지 눈으로 셀 수 없어 자릿수 실수가 난다.
+   -> type=text + inputmode=numeric 으로 바꾸고 입력 중 실시간 서식을 넣는다.
+      커서는 "앞쪽 숫자 개수" 기준으로 복원한다. 콤마가 삽입돼도 위치가 튀지 않는다.
+      옆에는 money()로 읽은 단위(1,000만원 / $100,000)를 함께 띄운다.
+   ============================================================ */
+function amtVal(id){ return Number(String($(id).value).replace(/[^\d]/g, "")) || 0; }
+
+function amtFormat(str){
+  const digits = String(str).replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
+  return digits ? Number(digits).toLocaleString("en-US") : "";
+}
+
+function amtEcho(id){
+  const e = $(id + "Echo");
+  if (!e) return;
+  const v = amtVal(id);
+  e.textContent = v > 0 ? money(v) : "";
+}
+
+function setAmount(id, v){ $(id).value = Number(v).toLocaleString("en-US"); amtEcho(id); }
+
+function attachAmount(id){
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const caret = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, caret).replace(/[^\d]/g, "").length;
+    el.value = amtFormat(el.value);
+    let pos = 0, seen = 0;
+    while (pos < el.value.length && seen < before){ if (/\d/.test(el.value[pos])) seen++; pos++; }
+    try { el.setSelectionRange(pos, pos); } catch (_){}
+    amtEcho(id);
+  });
+  amtEcho(id);
+}
+
+/* ============================================================
+   종목 검색 필터 (2026-08-06)
+   ------------------------------------------------------------
+   유니버스를 36 -> 188종목으로 늘리면서, 평면 드롭다운으로는
+   원하는 종목을 찾을 수 없게 됐다. optgroup 그룹핑만으로는 부족하다.
+   티커·종목명 어느 쪽으로 쳐도 걸리게 하고, 비어버린 그룹은 숨긴다.
+   ============================================================ */
+function applyTickerFilter(sel, q){
+  const kw = (q || "").trim().toLowerCase();
+  const hits = [];
+  let exact = null;
+
+  sel.querySelectorAll("optgroup").forEach(g => {
+    let any = false;
+    g.querySelectorAll("option").forEach(o => {
+      const tk = o.value.toLowerCase();                 // 티커 · 국내 종목번호(005930)
+      const nm = (o.textContent.split("—")[1] || "").trim().toLowerCase();
+      const hit = !kw || tk.includes(kw) || nm.includes(kw) || g.label.toLowerCase().includes(kw);
+      o.hidden = !hit;
+      if (hit){ any = true; hits.push(o); if (tk === kw) exact = o; }
+    });
+    g.hidden = !any;
+  });
+
+  /* "조회해서 선택"이 한 동작으로 끝나게 한다.
+     티커·종목번호를 정확히 다 쳤거나 후보가 하나로 좁혀지면 그 자리에서 선택한다.
+     그렇지 않더라도 현재 선택이 걸러졌으면 보이는 첫 항목으로 옮긴다
+     (숨은 값이 선택된 채로 실행되는 것을 막는다). */
+  const pick = exact || (hits.length === 1 ? hits[0] : null);
+  if (pick && sel.value !== pick.value){
+    sel.value = pick.value;
+    sel.dispatchEvent(new Event("change"));
+  } else if (sel.selectedOptions[0] && sel.selectedOptions[0].hidden){
+    const first = hits[0];
+    if (first){ sel.value = first.value; sel.dispatchEvent(new Event("change")); }
+  }
+  return hits.length;
+}
+
+/* ---------------- 렌더 ---------------- */
+const REBAL_LABEL = { none:"하지 않음", M:"매월", Q:"분기", H:"반기", Y:"연 1회", B5:"밴드 ±5%p", B10:"밴드 ±10%p" };
+
+function renderKpis(r){
+  const rec = r.recovery == null ? (r.mdd < 0 ? "미회복" : "—") : (r.recovery / 21).toFixed(1) + "개월";
+  const items = [
+    ["최종 자산", money(r.finalEq), cls(r.totalRet), `납입원금 ${money(r.invested)}`],
+    ["운용 수익률(TWR)", fmtPct(r.twrTotal), cls(r.twrTotal), "납입 시점 영향 제거"],
+    ["납입원금 대비", fmtPct(r.totalRet), cls(r.totalRet), `납입 ${money(r.invested)}`],
+    ["연평균(CAGR)", r.cagr == null ? "—" : fmtPct(r.cagr), r.cagr == null ? "" : cls(r.cagr),
+      "TWR 기준 · " + r.years.toFixed(1) + "년"],
+    ["최대 낙폭(MDD)", r.mdd.toFixed(1) + "%", "neg", "TWR 기준 · " + (r.mddEndDate || "")],
+    ["MDD 회복기간", rec, r.recovery == null && r.mdd < 0 ? "warn" : "", "최저점 이후"],
+    ["연 변동성", r.vol.toFixed(1) + "%", "", "TWR 일간수익률 기준"],
+    ["리밸런싱", r.rebalCount + "회", "", `매매 ${r.trades}건`],
+    ["누적 거래비용", money(r.totalCost), "warn",
+      r.totalTax > 0 ? `수수료 ${money(r.totalFee)} + 거래세 ${money(r.totalTax)}` : "수수료"],
+  ];
+  $("kpis").innerHTML = items.map(([k, v, c, s]) =>
+    `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join("");
+}
+
+function renderRebalTable(all, curMode){
+  const best = all.reduce((a, x) => x.r.finalEq > a.r.finalEq ? x : a, all[0]);
+  $("rebalBody").innerHTML = all.map(x => {
+    const r = x.r, isCur = x.mode === curMode, isBest = x.mode === best.mode;
+    return `<tr class="${isBest ? "best" : ""} ${isCur ? "cur" : ""}">
+      <td>${REBAL_LABEL[x.mode]}${isBest ? " 🏆" : ""}</td>
+      <td class="num">${money(r.finalEq)}</td>
+      <td class="num">${fmtPct(r.twrTotal)}</td>
+      <td class="num">${r.cagr == null ? "—" : fmtPct(r.cagr)}</td>
+      <td class="num">${r.mdd.toFixed(1)}%</td>
+      <td class="num">${r.vol.toFixed(1)}%</td>
+      <td class="num">${r.trades.toLocaleString()}</td>
+      <td class="num">${money(r.totalCost)}</td>
+    </tr>`;
+  }).join("");
+
+  /* ☠️ 리밸런싱 전멸 경고 (2026-08-06)
+     실측: TQQQ/SQQQ/GLD를 매월 리밸런싱하면 TWR 0% — 자산이 전멸한다.
+     오르는 쪽을 팔아 떨어지는 쪽을 계속 사기 때문이다. 인버스·레버리지처럼
+     한쪽이 구조적으로 0을 향해 가는 자산이 섞이면 리밸런싱이 곧
+     "가라앉는 배에 계속 짐 옮겨 싣기"가 된다. 같은 포트폴리오에서
+     주기 하나 차이로 전멸이 갈리면 판정보다 먼저 경고한다. */
+  const worst6 = all.reduce((a, x) => x.r.twrTotal < a.r.twrTotal ? x : a, all[0]);
+  const best6 = all.reduce((a, x) => x.r.twrTotal > a.r.twrTotal ? x : a, all[0]);
+  const wipeEl = $("wipeNote");
+  /* [실측 수정 2026-08-06] 처음엔 "최악 <= -70%"만 봤는데, 실제 TQQQ/SQQQ/GLD는
+     방치 +6,466% vs 매월 -1.5%로 나온다 — 원금이 깨진 게 아니라 65배 수익이
+     통째로 증발한 것이다. 절대 손실 게이트로는 이 상대 전멸을 못 잡는다.
+       A(절대): 최악이 -70% 이하 — 원금 자체가 무너진 경우
+       B(상대): 최고가 +100% 이상인데 최악이 본전 이하 — 수익 기회가 갈려나간 경우 */
+  const absWipe = worst6.r.twrTotal <= -70;
+  const relWipe = best6.r.twrTotal >= 100 && worst6.r.twrTotal <= 0;
+  if (absWipe || relWipe){
+    const catNote = (window.__cats || []).some(c => c === "inverse")
+      ? " 이 조합에는 <strong>인버스 ETF</strong>가 들어 있습니다 — 기초지수가 장기 우상향하면 인버스는 구조적으로 0을 향해 가고, 리밸런싱은 오르는 자산을 팔아 그 배에 계속 옮겨 싣습니다."
+      : (window.__cats || []).some(c => c === "leveraged")
+      ? " 이 조합에는 <strong>레버리지 ETF</strong>가 들어 있습니다 — 변동성 끌림으로 급락 구간에서 원금이 녹는 자산에 리밸런싱이 계속 자금을 채워 넣습니다."
+      : "";
+    wipeEl.style.display = "";
+    $("wipeText").innerHTML =
+      `같은 포트폴리오인데 <strong>${REBAL_LABEL[worst6.mode]}</strong> 리밸런싱은 운용수익률 `
+      + `<strong>${fmtPct(worst6.r.twrTotal)}</strong>, <strong>${REBAL_LABEL[best6.mode]}</strong>는 `
+      + `${fmtPct(best6.r.twrTotal)}였습니다. `
+      + (absWipe
+        ? `<strong>주기 하나 차이로 원금이 사실상 전멸했습니다.</strong>`
+        : `<strong>주기 하나 차이로 ${(best6.r.twrTotal / 100 + 1).toFixed(0)}배가 될 수익이 통째로 사라졌습니다.</strong>`)
+      + catNote
+      + `<br><br>이런 구성에서 "리밸런싱은 위험 관리"라는 통념은 <strong>거꾸로 작동합니다.</strong> `
+      + `아래 표의 낙폭·변동성 개선 수치도 이 구성에서는 판단 근거로 쓰지 마십시오.`;
+  } else {
+    wipeEl.style.display = "none";
+  }
+
+  // 판정: 방치 대비 리밸런싱이 실제로 이득이었나
+  const none = all.find(x => x.mode === "none").r;
+  const yearly = all.find(x => x.mode === "Y").r;
+  const monthly = all.find(x => x.mode === "M").r;
+  const bestR = best.r;
+  const note = $("verdictNote"), txt = $("verdictText");
+  const gain = bestR.finalEq - none.finalEq;
+  const gainPct = (bestR.finalEq / none.finalEq - 1) * 100;
+
+  /* MDD는 음수다. -29% -> -32%는 '깊어진' 것이므로
+     (리밸런싱 mdd) - (방치 mdd)가 양수여야 개선이다. 부호를 헷갈리면 정반대로 말하게 된다. */
+  const ddDelta = bestR.mdd - none.mdd;        // 양수 = 낙폭이 얕아짐(개선)
+  const ddText = (r2) => {
+    const d = r2.mdd - none.mdd;
+    if (Math.abs(d) < 0.05) return `낙폭은 ${none.mdd.toFixed(1)}%로 사실상 같았습니다.`;
+    return d > 0
+      ? `낙폭은 ${none.mdd.toFixed(1)}% → ${r2.mdd.toFixed(1)}%로 <strong>${d.toFixed(1)}%p 얕아졌습니다</strong>.`
+      : `낙폭은 ${none.mdd.toFixed(1)}% → ${r2.mdd.toFixed(1)}%로 <strong>${Math.abs(d).toFixed(1)}%p 오히려 깊어졌습니다</strong>.`;
+  };
+  const volText = (r2) => {
+    const d = none.vol - r2.vol;               // 양수 = 변동성 감소(개선)
+    return Math.abs(d) < 0.05 ? "변동성도 거의 같았습니다."
+      : d > 0 ? `연 변동성은 ${none.vol.toFixed(1)}% → ${r2.vol.toFixed(1)}%로 ${d.toFixed(1)}%p 낮아졌습니다.`
+              : `연 변동성은 ${none.vol.toFixed(1)}% → ${r2.vol.toFixed(1)}%로 ${Math.abs(d).toFixed(1)}%p 높아졌습니다.`;
+  };
+
+  if (best.mode === "none"){
+    note.className = "note risk";
+    txt.innerHTML = `이 구간에서는 <strong>리밸런싱을 하지 않은 쪽이 가장 좋았습니다.</strong> `
+      + `매월 리밸런싱했다면 누적비용이 ${money(monthly.totalCost)}, 최종자산은 `
+      + `${money(none.finalEq - monthly.finalEq)} 적었습니다. `
+      + `리밸런싱은 <strong>수익을 늘리는 장치가 아니라 위험을 관리하는 장치</strong>입니다 — `
+      + `연 1회 기준으로 ${ddText(yearly)} ${volText(yearly)}`;
+  } else {
+    note.className = ddDelta > 0 ? "note good" : "note";
+    txt.innerHTML = `<strong>${REBAL_LABEL[best.mode]} 리밸런싱</strong>이 방치보다 ${money(Math.abs(gain))} `
+      + `(${fmtPct(gainPct)}) 나았습니다. 누적비용 ${money(bestR.totalCost)}을 이미 차감한 값입니다. `
+      + ddText(bestR) + " " + volText(bestR)
+      + (ddDelta > 0 ? "" : ` <strong>수익과 안정성이 함께 가지 않았습니다</strong> — 이 경우 '더 벌었다'만 보고 고르면 위험이 커집니다.`)
+      + ` 이는 <strong>선택한 구간의 결과</strong>이므로 시작일을 바꿔 재검증해 보십시오.`;
+  }
+}
+
+function renderWalkForwardPf(wf, prof){
+  const sec = $("wfBody").closest("section");
+  if (!wf){ sec.style.display = "none"; return; }
+  sec.style.display = "";
+  const short = d => d.slice(2).replace(/-/g, ".");
+  const N = wf.nCombo;
+
+  $("wfBody").innerHTML = wf.steps.map((s, i) => {
+    const bg = s.osRank <= N / 3 ? "var(--tint)" : s.osRank > N * 2 / 3 ? "var(--red-t)" : "transparent";
+    return `<tr>
+      <td style="color:var(--faint)">${i + 1}</td>
+      <td style="font-size:12px">${short(s.isFrom)}~${short(s.isTo)}</td>
+      <td style="font-weight:600">${REBAL_LABEL[s.pick]}</td>
+      <td class="num" style="color:var(--faint)">${fmtPct(s.isTwr)}</td>
+      <td style="font-size:12px">${short(s.osFrom)}~${short(s.osTo)}</td>
+      <td class="num">${fmtPct(s.osTwr)}</td>
+      <td class="num" style="background:${bg};font-weight:700">${s.osRank}위 / ${N}</td>
+      <td style="font-size:12px;color:var(--faint)">${REBAL_LABEL[s.osBestMode]}<br>${fmtPct(s.osBest)}</td>
+      <td class="num" style="color:${s.gap > 3 ? "var(--red)" : "var(--faint)"}">${s.gap < 0.05 ? "—" : s.gap.toFixed(1) + "%p"}</td>
+      <td class="num" style="color:var(--faint)">${s.osSpread.toFixed(1)}%p</td>
+    </tr>`;
+  }).join("");
+
+  const note = $("wfNote"), lbl = $("wfLbl"), R = wf.avgRank, E = wf.randomExpect;
+  let t = `전체 기간을 <strong>학습 ${wf.isLen}거래일 → 검증 ${wf.osLen}거래일</strong>로 나눠 `
+    + `${wf.steps.length}번 앞으로 굴렸습니다(Rolling, IS:OS=70:30). `
+    + `학습구간에서 <strong>1위였던 주기만</strong> 그다음 검증구간에 적용하고, `
+    + `검증구간에서도 ${N}종을 전부 돌려 <strong>몇 위였는지</strong> 기록했습니다. `
+    + `검증구간은 주기 선택에 쓰이지 않았고, 구간마다 초기자본·목표비중으로 새로 시작합니다. `
+    + `순위는 납입 타이밍이 섞이지 않는 <strong>TWR</strong> 기준입니다.<br><br>`
+    + `<strong>평균 검증 순위 ${R.toFixed(1)}위 / ${N}</strong>(아무거나 찍으면 ${E}위) · `
+    + `학습 1위와 검증 1위가 <strong>달랐던 횟수 ${wf.flip}/${wf.steps.length}</strong> · `
+    + `학습 1위를 따라서 <strong>평균 ${wf.avgGap.toFixed(1)}%p</strong> 놓쳤습니다.`;
+
+  /* 순위보다 격차를 먼저 본다.
+     6종이 사실상 동점인 구간에서 "1위를 맞췄다"고 말하면 잡음을 실력으로 포장하게 된다. */
+  if (wf.avgSpread < 5){
+    note.className = "note";
+    lbl.textContent = "주기 선택이 성과를 거의 바꾸지 않았습니다";
+    const worst = wf.steps.reduce((a, x) => x.osSpread > a.osSpread ? x : a);
+    t += `<br><br><strong>대부분의 구간에서 순위를 논할 만한 차이가 없었습니다.</strong> `
+      + `검증구간 ${N}종의 최고~최저 격차가 평균 <strong>${wf.avgSpread.toFixed(1)}%p</strong>였습니다. `
+      + `이 정도면 위의 순위는 대부분 <strong>잡음</strong>입니다.`;
+    /* 평균이 작아도 최대가 크면 "차이 없다"고 말해선 안 된다. 평균이 극단 구간을 가린다. */
+    if (wf.maxSpread >= 10){
+      t += `<br><br><strong>단, ${worst.osFrom}~${worst.osTo} 구간은 예외입니다.</strong> `
+        + `이 구간에서만 격차가 <strong>${worst.osSpread.toFixed(1)}%p</strong>까지 벌어졌습니다`
+        + `(당시 1위 ${REBAL_LABEL[worst.osBestMode]} ${fmtPct(worst.osBest)}). `
+        + `평균값 하나로 "주기는 상관없다"고 결론 내리면 이런 구간을 놓칩니다. `
+        + `주기가 크게 갈리는 때가 분명히 있고, <strong>그때가 언제일지는 미리 알 수 없습니다.</strong>`;
+    }
+    /* 이 결론을 다른 포트폴리오로 들고 가면 위험하다. 조건을 반드시 붙인다. */
+    if (prof){
+      t += `<br><br><strong>단, 이 결론은 지금 담은 자산 구성에만 해당합니다.</strong> `
+        + `이 조합은 개별 자산 최고 변동성 <strong>${prof.maxVol.toFixed(0)}%</strong>`
+        + (prof.avgCorr != null ? `, 자산 간 평균 상관 <strong>${prof.avgCorr.toFixed(2)}</strong>` : "")
+        + `입니다. 격차를 결정하는 것은 <strong>자산 개수가 아니라 변동성</strong>입니다 — `
+        + `실측상 같은 3자산이라도 주식만 담으면 격차가 0.6%p, `
+        + `레버리지·인버스를 섞으면 29.9%p까지 벌어졌습니다`
+        + `(그 조합은 매월 리밸런싱 시 운용수익률이 0%까지 갈렸습니다). `
+        + `구성을 바꾸면 <strong>이 표의 결론도 바뀝니다.</strong>`;
+    }
+    t += `<br><br>지금 구성에서는, 주기를 성과가 아니라 `
+      + `<strong>본인이 실제로 지킬 수 있는지</strong>로 고르십시오.`;
+  } else if (R >= E){
+    note.className = "note risk"; lbl.textContent = "⚠️ 주기 최적화가 오히려 해로웠습니다";
+    t += (prof ? `<br><br>이 조합은 개별 자산 최고 변동성 <strong>${prof.maxVol.toFixed(0)}%</strong>`
+        + (prof.avgCorr != null ? `, 평균 상관 <strong>${prof.avgCorr.toFixed(2)}</strong>` : "")
+        + `로 주기별 성과가 크게 갈리는 구성입니다.` : ``)
+      + `<br><br>검증구간 격차가 평균 ${wf.avgSpread.toFixed(1)}%p로 작지 않은데도, `
+      + `<strong>과거에 가장 좋았던 주기를 고르는 것이 무작위보다 나빴습니다.</strong> `
+      + `리밸런싱 주기는 과거 성적으로 고를 수 있는 값이 아닙니다. `
+      + `위 표의 1위 칸은 그 구간에 우연히 맞은 결과로 보십시오.`;
+  } else if (R > E * 0.75){
+    note.className = "note risk"; lbl.textContent = "⚠️ 예측력이 사실상 없습니다";
+    t += `<br><br>무작위(${E}위)와 차이가 없습니다. 특정 주기를 `
+      + `<strong>"검증된 설정"이라 부를 근거가 나오지 않았습니다.</strong>`;
+  } else {
+    note.className = "note"; lbl.textContent = "약한 지속성 — 단정 금지";
+    t += `<br><br>학습 1위가 검증에서도 상위권을 유지했고, 격차도 평균 ${wf.avgSpread.toFixed(1)}%p로 `
+      + `무시할 수준은 아닙니다. 다만 스텝이 ${wf.steps.length}번뿐이고 `
+      + `<strong>이 자산 조합의 한 역사</strong>일 뿐입니다. 구성이나 기간을 바꾸면 무너질 수 있습니다.`;
+  }
+  $("wfText").innerHTML = t;
+}
+
+function renderAssets(r, defs, perAsset){
+  $("assetBody").innerHTML = defs.map((d, j) => `
+    <tr>
+      <td>${d.ticker} — ${d.name}</td>
+      <td class="num">${(d.weight * 100).toFixed(1)}%</td>
+      <td class="num">${(r.finalWeights[j] * 100).toFixed(1)}%</td>
+      <td class="num">${fmtPct(perAsset[j].ret)}</td>
+      <td class="num">${perAsset[j].mdd.toFixed(1)}%</td>
+    </tr>`).join("");
+
+  let maxDrift = 0, who = "";
+  defs.forEach((d, j) => {
+    const dr = r.finalWeights[j] - d.weight;
+    if (Math.abs(dr) > Math.abs(maxDrift)){ maxDrift = dr; who = d.name; }
+  });
+  const note = $("driftNote");
+  if (Math.abs(maxDrift) > 0.08){
+    note.style.display = "";
+    $("driftText").innerHTML = `<strong>${who}</strong>의 비중이 목표 대비 `
+      + `<strong>${(maxDrift * 100).toFixed(1)}%p ${maxDrift > 0 ? "초과" : "미달"}</strong> 상태로 끝났습니다. `
+      + `리밸런싱 주기가 길거나 하지 않으면 잘 오른 자산에 포트폴리오가 쏠려, `
+      + `의도한 위험 배분이 무너집니다.`;
+  } else note.style.display = "none";
+}
+
+function renderAssump(defs, r, sc, meta){
+  const mk = meta.market;
+  $("assumpBody").textContent = [
+    `자산        ${defs.map(d => `${d.ticker}(${(d.weight*100).toFixed(1)}%)`).join(" · ")}`,
+    `시장·통화   ${mk} · ${CUR.code}`,
+    `기간        ${r.dates[0]} ~ ${r.dates[r.dates.length-1]}  (${r.dates.length} 거래일)`,
+    `거래일 구성 시장 거래일 합집합. 특정 자산에 값이 없는 날(거래정지 등)은 직전 종가를 유지한다.`,
+    `            교집합 방식은 한 종목의 정지 하루 때문에 시장 전체 거래일을 버려 MDD·변동성을 왜곡한다.`,
+    `초기 투자금 ${money(amtVal("capital"))}`,
+    `추가 납입   ${amtVal("monthly") > 0 ? money(amtVal("monthly")) + " / 매월 첫 거래일에 목표비중대로 배분" : "없음(거치식)"}`,
+    `리밸런싱    ${REBAL_LABEL[$("rebal").value]} — 초과분 매도 후 부족분 매수`,
+    `수익률 기준 MDD·변동성·CAGR은 단위가(TWR) 기준. 외부 납입금이 수익에 섞이지 않도록 분리했다.`,
+    `            '납입원금 대비'는 개인이 실제로 체감하는 손익률(MWR 성격)로 별도 표기.`,
+    `세금        ${meta.market === "KR" ? "국내 ETF는 증권거래세 비대상 → 미부과. 개별주만 시점별 적용." : "SEC 수수료만"}`,
+    `            ⚠️ 레버리지·인버스 ETF의 배당소득세(과표기준가 기준)는 데이터 미확보로 미반영`,
+    `비용        ${sc.name} 시나리오 · 수수료 ${(sc.feeRate*100).toFixed(4).replace(/0+$/,"").replace(/\.$/,"")}% · 슬리피지 ${(sc.slipRate*100).toFixed(3).replace(/0+$/,"").replace(/\.$/,"")}%`,
+    (mk === "KR"
+      ? `증권거래세  매도 시 시점별 자동 적용 — ` + KR_SELL_TAX_TABLE.map(t => `${t.label} ${(t.rate*100).toFixed(2)}%`).join(" / ")
+      : `SEC 수수료  매도 시 0.00206% (2026-04-04 부활, 이전 $0)`),
+    (mk === "KR"
+      ? `배당        ⚠️ 미반영 — KRX 공개데이터는 액면분할만 소급 반영`
+      : `배당        수정주가에 반영됨(재투자 가정)`),
+    `미반영      양도소득세 · 환전비용 · 시장충격 · 부분체결`,
+    `엔진        simulatePortfolio() / 경로의존 순차 루프`,
+  ].join("\n");
+}
+
+/* ---------------- 실행 ---------------- */
+async function run(){
+  const btn = $("runBtn"), st = $("status");
+  btn.disabled = true; st.className = "status"; st.textContent = "계산 중…";
+  try {
+    const rs = rows();
+    if (!rs.length) throw new Error("자산을 1개 이상 추가해 주십시오");
+
+    const raw = rs.map(r => ({ ticker: r.querySelector(".a-t").value,
+                               w: Number(r.querySelector(".a-w").value) || 0 }))
+                  .filter(x => x.ticker && x.w > 0);
+    if (!raw.length) throw new Error("비중이 0보다 큰 자산이 필요합니다");
+    const wsum = raw.reduce((a, x) => a + x.w, 0);
+
+    const docs = await Promise.all(raw.map(x => loadTicker(x.ticker)));
+    const markets = new Set(docs.map(d => d.market || "US"));
+    if (markets.size > 1) throw new Error("한국·미국 종목은 통화가 달라 함께 계산할 수 없습니다 (환율 미반영)");
+    const market = [...markets][0];
+    CUR.code = market === "KR" ? "KRW" : "USD";
+
+    const from = $("from").value, to = $("to").value;
+    /* ⚠️ 2026-08-05 수정 — 거래일 교집합 → 합집합 + 직전가 유지
+       기존에는 '전 종목이 모두 거래된 날'만 썼다. 그러면 한 종목이 거래정지된
+       하루 때문에 나머지 종목의 정상 거래일까지 통째로 버려져,
+       MDD·변동성·회복기간이 실제보다 짧게/얕게 나온다.
+       -> 시장 거래일은 보존하고, 값이 없는 자산만 직전 종가를 유지한다(가격 불변 = 수익률 0). */
+    const maps = docs.map(d => new Map(d.records.filter(x => (!from || x.d >= from) && (!to || x.d <= to)).map(x => [x.d, x.c])));
+    // 모든 자산이 존재하는 시점부터 시작 (상장이 늦은 종목 기준)
+    const startAll = maps.reduce((a, m) => { const f = [...m.keys()].sort()[0]; return (!a || (f && f > a)) ? f : a; }, null);
+    if (!startAll) throw new Error("선택한 기간에 데이터가 없습니다");
+    const dates = [...new Set(maps.flatMap(m => [...m.keys()]))].filter(d => d >= startAll).sort();
+    if (dates.length < 120) throw new Error(`거래일이 ${dates.length}일뿐입니다 — 기간을 늘리거나 상장이 늦은 종목을 빼 주십시오`);
+
+    // 직전가 유지(forward fill). 채워 넣은 일수를 세어 화면에 공개한다.
+    let filled = 0;
+    const priceCols = maps.map(m => {
+      let last = null;
+      return dates.map(d => {
+        const v = m.get(d);
+        if (v != null){ last = v; return v; }
+        filled++;
+        return last;                    // 거래정지 등 — 직전 종가 유지
+      });
+    });
+    if (priceCols.some(col => col[0] == null)) throw new Error("시작일 시점에 가격이 없는 자산이 있습니다");
+    const defs = raw.map((x, j) => ({ ticker: x.ticker, name: docs[j].name, weight: x.w / wsum }));
+    const weights = defs.map(d => d.weight);
+    const sc = SCENARIO_SETS[market][$("costSet").value];
+    const capital = Math.max(1, amtVal("capital") || 0);
+    const monthlyAdd = Math.max(0, amtVal("monthly"));
+
+    const opts = { weights, capital, monthlyAdd, feeRate: sc.feeRate, slipRate: sc.slipRate, market,
+                   cats: docs.map(d => d.tax_class || "") };
+    window.__cats = docs.map(d => d.category || "");   // ☠️ 전멸 경고가 인버스·레버리지 포함 여부를 본다
+    const dead = docs.filter(d => d.delisted);
+    if (dead.length){
+      $("delistWarn").style.display = "";
+      $("delistText").innerHTML =
+        `이 포트폴리오에는 상장폐지 종목이 <strong>${dead.length}개</strong> 들어 있습니다: `
+        + dead.map(d => `<strong>${d.name}</strong> (${d.delist_date} 폐지)`).join(" · ") + `.<br><br>`
+        + `해당 자산은 <strong>마지막 시세 이후 가격이 없어 직전가로 고정</strong>됩니다 — `
+        + `실제로는 정리매매·환금성 제약으로 회수가 어려웠을 수 있으며, 결과가 후하게 나옵니다. `
+        + `생존편향이 실제 포트폴리오에 어떻게 작용하는지 보기 위한 표본입니다.`;
+    } else {
+      $("delistWarn").style.display = "none";
+    }
+    const modes = ["none", "Y", "H", "Q", "M", "B5"];
+    const all = modes.map(mode => ({ mode, r: simulatePortfolio(dates, priceCols, { ...opts, rebalMode: mode }) }));
+    const curMode = $("rebal").value;
+    const cur = all.find(x => x.mode === curMode)?.r
+      || simulatePortfolio(dates, priceCols, { ...opts, rebalMode: curMode });
+    const none = all.find(x => x.mode === "none").r;
+
+    // 자산별 개별 성과
+    const perAsset = priceCols.map(col => {
+      const ret = (col[col.length - 1] / col[0] - 1) * 100;
+      let pk = -Infinity, md = 0;
+      for (const p of col){ if (p > pk) pk = p; const d = (p / pk - 1) * 100; if (d < md) md = d; }
+      return { ret, mdd: md };
+    });
+
+    renderKpis(cur);
+    renderRebalTable(all, curMode);
+    renderWalkForwardPf(computeWalkForwardPf(dates, priceCols, opts), assetProfile(priceCols));
+    renderAssets(cur, defs, perAsset);
+    renderAssump(defs, cur, sc, { market });
+    $("results").classList.remove("hidden");
+    drawChart($("chart"), cur, curMode === "none" ? null : none);
+    window.__cur = cur; window.__none = curMode === "none" ? null : none;
+
+    st.textContent = `완료 — ${dates.length.toLocaleString()} 거래일 · ${defs.length}개 자산 · 리밸런싱 ${modes.length}종 비교`
+      + (filled ? ` · 직전가 유지 ${filled}건` : "")
+      + (Math.abs(wsum - 100) > 0.01 ? ` · 비중 ${wsum}%를 100%로 환산` : "");
+  } catch (err){
+    st.className = "status err"; st.textContent = "오류: " + err.message;
+  } finally { btn.disabled = false; }
+}
+
+$("runBtn").addEventListener("click", run);
+$("addBtn").addEventListener("click", () => addRow(null, 25));
+$("tickSearch").addEventListener("input", e => {
+  document.querySelectorAll("#assets .a-t").forEach(sel => applyTickerFilter(sel, e.target.value));
+});
+$("capital").addEventListener("input", e => { e.target.dataset.touched = "1"; });
+$("monthly").addEventListener("input", e => { e.target.dataset.touched = "1"; });
+attachAmount("capital");
+attachAmount("monthly");
+$("to").value = new Date().toISOString().slice(0, 10);
+let rt; addEventListener("resize", () => { clearTimeout(rt);
+  rt = setTimeout(() => { if (window.__cur) drawChart($("chart"), window.__cur, window.__none); }, 150); });
+
+(async function init(){
+  const st = $("status");
+  try {
+    MANIFEST = await loadManifest();
+    $("presets").innerHTML = PRESETS.map((p, i) => `<button type="button" data-i="${i}">${p.name}</button>`).join("");
+    $("presets").addEventListener("click", e => {
+      const b = e.target.closest("button[data-i]");
+      if (b) applyPreset(PRESETS[+b.dataset.i]);
+    });
+    applyPreset(PRESETS[0]);
+    $("runBtn").disabled = false;
+    st.textContent = `준비 완료 — ${MANIFEST.count}종목`;
+    $("dataStamp").textContent = `데이터 생성 ${MANIFEST.generated_at?.slice(0, 10) || "-"}`;
+  } catch (err){
+    st.className = "status err";
+    st.textContent = "데이터를 불러오지 못했습니다 — 웹서버(GitHub Pages)에서 열어주십시오.";
+  }
+})();
+</script>
+</body>
+</html>
