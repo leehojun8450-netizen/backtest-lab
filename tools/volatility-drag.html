@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>레버리지 변동성 끌림 계산기 — backtest-lab</title>
+<style>
+:root{
+  --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2;
+  --line:#d3d6cd; --line-2:#b7bcae;
+  --red:#9c3b32; --red-t:#f3e1de; --amber:#a47726; --amber-t:#f1e6d2;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif KR",serif;
+  --sans:-apple-system,"Segoe UI","Pretendard","Apple SD Gothic Neo","Noto Sans KR",Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Roboto Mono","D2Coding",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+    --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+    --red:#df8074; --red-t:#2c1e1c; --amber:#dbb15a; --amber-t:#2b2418; }
+}
+:root[data-theme="dark"]{ --paper:#121613; --raised:#181e1a; --ink:#e7eae4; --soft:#a6aea5; --faint:#6f766f;
+  --accent:#57b499; --accent-2:#7ccdb1; --tint:#1c2c26; --line:#2a3129; --line-2:#3a4239;
+  --red:#df8074; --red-t:#2c1e1c; --amber:#dbb15a; --amber-t:#2b2418; }
+:root[data-theme="light"]{ --paper:#eef1ec; --raised:#ffffff; --ink:#1a211e; --soft:#4b554f; --faint:#7c8580;
+  --accent:#1f5c4e; --accent-2:#133d33; --tint:#dde9e2; --line:#d3d6cd; --line-2:#b7bcae;
+  --red:#9c3b32; --red-t:#f3e1de; --amber:#a47726; --amber-t:#f1e6d2; }
+
+*{box-sizing:border-box;} html,body{margin:0;padding:0;}
+body{ background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+.wrap{ max-width:1120px; margin:0 auto; padding:0 20px 80px; }
+
+header.top{ border-bottom:1px solid var(--line); padding:34px 0 22px; margin-bottom:26px; }
+.eyebrow{ font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+.eyebrow::before{ content:""; width:20px; height:1px; background:var(--accent); }
+h1{ font-family:var(--serif); font-size:clamp(26px,3.4vw,36px); font-weight:600; margin:0 0 10px; }
+header.top p{ color:var(--soft); margin:0; max-width:68ch; font-size:14.5px; }
+a.back{ font-family:var(--mono); font-size:12px; color:var(--accent); text-decoration:none; }
+a.back:hover{ text-decoration:underline; }
+
+.panel{ background:var(--raised); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin-bottom:22px; }
+.panel-title{ font-family:var(--mono); font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); margin-bottom:16px; }
+.panel-title span{ text-transform:none; letter-spacing:0; }
+
+.ctrl-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; }
+label.f{ display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--soft); }
+label.f .hint{ font-size:11px; color:var(--faint); }
+select,input[type="number"],input[type="date"]{ font-family:var(--mono); font-size:13.5px; padding:8px 10px; border:1px solid var(--line-2); border-radius:7px; background:var(--paper); color:var(--ink); width:100%; }
+select:focus,input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+
+.run-row{ display:flex; gap:12px; align-items:center; margin-top:20px; flex-wrap:wrap; }
+button.run{ font-weight:600; font-size:14.5px; padding:11px 26px; border:0; border-radius:8px; background:var(--accent); color:var(--paper); cursor:pointer; }
+button.run:hover{ background:var(--accent-2); }
+button.run:disabled{ opacity:.5; cursor:not-allowed; }
+button.run:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+.status{ font-family:var(--mono); font-size:12px; color:var(--faint); }
+.status.err{ color:var(--red); }
+
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+.kpi{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper); }
+.kpi .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); }
+.kpi .v{ font-family:var(--mono); font-size:21px; font-variant-numeric:tabular-nums; font-weight:600; margin-top:5px; }
+.kpi .s{ font-size:11.5px; color:var(--faint); margin-top:2px; }
+.v.pos{ color:var(--accent); } .v.neg{ color:var(--red); } .v.warn{ color:var(--amber); }
+
+canvas{ width:100%; display:block; border-radius:8px; }
+.chart-legend{ display:flex; gap:16px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:10px; }
+.chart-legend i{ display:inline-block; width:11px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+
+.tbl-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+table{ border-collapse:collapse; width:100%; min-width:540px; font-size:13px; }
+th,td{ padding:10px 14px; text-align:left; border-bottom:1px solid var(--line); }
+thead th{ font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--soft); background:var(--tint); white-space:nowrap; }
+tbody tr:last-child td{ border-bottom:none; }
+td.num{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+tr.hl td{ background:color-mix(in srgb,var(--tint) 60%,transparent); font-weight:600; }
+td.step{ font-family:var(--mono); font-size:12px; color:var(--faint); }
+
+.note{ border:1px solid var(--line-2); border-left:3px solid var(--amber); border-radius:8px; padding:14px 18px; margin-top:18px; background:var(--raised); }
+.note .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
+.note p{ margin:0 0 9px; font-size:13px; color:var(--soft); line-height:1.6; }
+.note p:last-child{ margin-bottom:0; }
+.note.risk{ border-left-color:var(--red); } .note.risk .lbl{ color:var(--red); }
+.note.good{ border-left-color:var(--accent); } .note.good .lbl{ color:var(--accent); }
+
+details.assump{ margin-top:18px; border:1px solid var(--line); border-radius:8px; background:var(--raised); }
+details.assump summary{ cursor:pointer; padding:12px 18px; font-family:var(--mono); font-size:12px; color:var(--soft); }
+details.assump .body{ padding:0 18px 16px; font-family:var(--mono); font-size:11.5px; color:var(--faint); line-height:1.8; white-space:pre-wrap; }
+
+.formula{ font-family:var(--mono); font-size:12.5px; line-height:1.85; background:var(--ink); color:var(--paper); border-radius:10px; padding:18px 22px; margin:16px 0 6px; overflow-x:auto; }
+.formula .op{ color:#7ccdb1; }
+
+footer.foot{ margin-top:40px; padding-top:22px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; color:var(--faint); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.hidden{ display:none !important; }
+@media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">backtest-lab · 도구 3</div>
+    <h1>레버리지 변동성 끌림 계산기</h1>
+    <p>기초지수가 제자리로 돌아와도 레버리지 ETF에는 손실이 남습니다. 그 손실이 <strong>변동성 끌림·운용보수·차입금리 중 무엇에서 얼마나 왔는지</strong> 분해하고, 계산한 이론값을 <strong>실제 ETF와 대조</strong>해 모델이 맞는지까지 보여줍니다.</p>
+    <p style="margin-top:12px"><a class="back" href="../index.html">← 도구 목록</a></p>
+  </header>
+
+  <section class="panel">
+    <div class="panel-title">1. 개념 — 왜 제자리로 와도 손실이 남는가</div>
+    <p style="color:var(--soft);font-size:14px;margin:0 0 4px">레버리지는 <strong>수익률</strong>을 배수로 따라갑니다. 가격이 아닙니다. 오르고 내리기를 반복하면 곱셈이 누적되며 원금이 깎입니다.</p>
+    <div class="tbl-wrap" style="margin-top:16px"><table>
+      <caption style="text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--faint);padding:12px 14px 0">기초지수가 X% 오른 뒤 같은 X% 내리면 (제자리처럼 보이지만)</caption>
+      <thead><tr><th class="num">등락폭</th><th class="num">기초(1배)</th><th class="num">2배</th><th class="num">3배</th></tr></thead>
+      <tbody id="conceptBody"></tbody>
+    </table></div>
+    <div class="note">
+      <div class="lbl">읽는 법</div>
+      <p>등락폭이 커질수록 손실이 <strong>제곱으로</strong> 불어납니다. 10% 등락이면 3배도 −9%지만, 30% 등락이면 −59%입니다. 이것이 <strong>변동성 끌림(Volatility Drag)</strong>이며, 비용이 0이어도 발생하는 <strong>수학적 손실</strong>입니다.</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title">2. 실제 데이터로 검증 <span>— 기초지수 · 이론 레버리지 · 실제 ETF 3자 비교</span></div>
+    <div class="ctrl-grid">
+      <label class="f">비교 대상
+        <select id="pair"></select>
+      </label>
+      <label class="f">운용보수 <span class="hint">연 % · 0 가능</span>
+        <input type="number" id="fee" value="0.95" min="0" max="5" step="0.01">
+      </label>
+      <label class="f">차입 스프레드 <span class="hint">단기금리에 가산, 연 %</span>
+        <input type="number" id="spread" value="0.5" min="0" max="5" step="0.1">
+      </label>
+      <label class="f">시작일
+        <input type="date" id="from" value="2015-01-01">
+      </label>
+      <label class="f">종료일
+        <input type="date" id="to">
+      </label>
+    </div>
+    <div class="note" style="margin-top:0;margin-bottom:4px">
+      <div class="lbl">이 도구의 성격</div>
+      <p>이것은 <strong>비용 항목별 영향을 분해해 보여주는 교육용 계산기</strong>입니다. 매매전략 도구와 달리 운용보수·스프레드를 <strong>0으로 두고 실험할 수 있습니다</strong> — "비용이 없었다면 얼마였나"를 보여주는 것이 손실 분해의 출발점이기 때문입니다. 매매 수수료·세금은 반영하지 않습니다(보유만 가정).</p>
+    </div>
+    <div class="run-row">
+      <button class="run" id="runBtn" disabled>계산</button>
+      <span class="status" id="status">데이터 준비 중…</span>
+    </div>
+  </section>
+
+  <div id="results" class="hidden">
+    <section class="panel">
+      <div class="panel-title">결과 요약</div>
+      <div class="kpi-grid" id="kpis"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">손실 분해 <span>— 순진한 기대에서 실제까지, 무엇이 얼마나 깎았나</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>단계</th><th class="num">최종 가치</th><th class="num">누적 수익률</th><th class="num">직전 단계 대비</th></tr></thead>
+        <tbody id="ladderBody"></tbody>
+      </table></div>
+      <div class="note" id="decompNote">
+        <div class="lbl">해석</div>
+        <p id="decompText"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">경로 비교 <span>— 세로축 로그 스케일, 시작 100 기준</span></div>
+      <canvas id="chart" height="380"></canvas>
+      <div class="chart-legend">
+        <span><i style="background:var(--faint)"></i>기초지수(1배)</span>
+        <span><i style="background:var(--amber)"></i>이론 레버리지(비용 반영)</span>
+        <span><i style="background:var(--accent)"></i>실제 ETF</span>
+        <span><i style="background:var(--red)"></i>실제 ETF 낙폭</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">모델 정확도 <span>— 이론이 실제를 얼마나 재현하는가</span></div>
+      <div class="note" id="fitNote">
+        <div class="lbl">적합도</div>
+        <p id="fitText"></p>
+      </div>
+      <div class="formula">
+예상종가(t) = 예상종가(t-1) <span class="op">×</span> (1 + 기초_일일변동률(t) <span class="op">×</span> 배수)
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">−</span> 운용보수 ÷ 252
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="op">−</span> (단기금리 + 스프레드) <span class="op">×</span> (배수 − 1) ÷ 252</div>
+      <p style="color:var(--faint);font-size:12.5px;margin:8px 0 0">차입은 배수−1 만큼 일어난다고 봅니다(3배 = 자기자본 1 + 차입 2). 인버스는 배수의 절댓값−0으로 처리하지 않고, 공매도 조달비용을 같은 식으로 근사합니다.</p>
+    </section>
+
+    <details class="assump">
+      <summary>재현 정보 — 이 결과를 만든 가정 전문 (클릭하여 펼치기)</summary>
+      <div class="body" id="assumpBody"></div>
+    </details>
+  </div>
+
+  <div class="note risk" style="margin-top:26px">
+    <div class="lbl">면책 고지</div>
+    <p>본 도구는 과거 데이터를 이용한 시뮬레이션이며 <strong>투자 권유가 아닙니다.</strong> 과거 성과는 미래 수익을 보장하지 않으며, 레버리지 상품은 <strong>원금 전액 손실이 가능합니다.</strong> 이론 모델은 근사이며 실제 ETF와 오차가 있습니다 — 그 오차를 도구가 직접 표시합니다.</p>
+  </div>
+
+  <footer class="foot">
+    <span>코다리 컴퍼니 · backtest-lab</span>
+    <span id="dataStamp"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   기초지수 -> 레버리지 ETF 대응표
+   실제로 그 ETF가 추종하는 지수의 대표 ETF를 기초로 삼는다.
+   base가 우리 데이터에 없는 상품(SOXL 등)은 넣지 않는다 — 비교가 불가능하기 때문.
+   ============================================================ */
+const PAIRS = [
+  /* 기초자산(base)은 레버리지 ETF가 추종하는 **동일 지수**를 담은 ETF여야 한다.
+     지수가 다르면 이론 배율 계산 자체가 틀어지므로, 근사 대용은 넣지 않는다.
+       · SOXL(반도체 3x)은 기초지수 ETF(SOXX)를 아직 수집하지 않아 제외
+       · FAS(금융 3x)는 Russell 1000 Financials 추종이라 XLF와 지수가 달라 제외
+       · TZA(소형주 -3x)는 총보수를 공식 문서에서 확인하지 못해 제외
+
+     fee = 연 총보수(%). 근거 없는 숫자를 넣지 않는다는 원칙에 따라
+     운용사 공시·SEC 제출서류에서 확인한 값만 기재한다. 확인 시점 2026-08-06.
+       ProShares : 485BPOS FY2026 / 각 펀드 페이지 (2026-09-30까지 계약상 면제 적용)
+       Direxion  : 497K FY2026 (AFFE 제외 순보수) */
+
+  // ── 나스닥100 (기초: QQQ) ──
+  { base:"QQQ", lev:"TQQQ", mult:3,  fee:0.95, label:"나스닥100 → TQQQ (3배)" },
+  { base:"QQQ", lev:"QLD",  mult:2,  fee:0.95, label:"나스닥100 → QLD (2배)" },
+  { base:"QQQ", lev:"SQQQ", mult:-3, fee:0.95, label:"나스닥100 → SQQQ (인버스 3배)" },
+  { base:"QQQ", lev:"PSQ",  mult:-1, fee:0.95, label:"나스닥100 → PSQ (인버스 1배)" },
+  // ── S&P500 (기초: SPY) ──
+  { base:"SPY", lev:"UPRO", mult:3,  fee:0.91, label:"S&P500 → UPRO (3배)" },
+  { base:"SPY", lev:"SPXL", mult:3,  fee:0.81, label:"S&P500 → SPXL (3배)" },
+  { base:"SPY", lev:"SSO",  mult:2,  fee:0.89, label:"S&P500 → SSO (2배)" },
+  { base:"SPY", lev:"SDS",  mult:-2, fee:0.95, label:"S&P500 → SDS (인버스 2배)" },
+  { base:"SPY", lev:"SH",   mult:-1, fee:0.89, label:"S&P500 → SH (인버스 1배)" },
+  // ── 다우30 · 러셀2000 ──
+  { base:"DIA", lev:"UDOW", mult:3,  fee:0.95, label:"다우30 → UDOW (3배)" },
+  { base:"IWM", lev:"TNA",  mult:3,  fee:1.00, label:"러셀2000 → TNA (3배)" },
+  // ── 장기국채 (기초: TLT) ──
+  { base:"TLT", lev:"TMF",  mult:3,  fee:0.76, label:"장기국채 20년+ → TMF (3배)" },
+  { base:"TLT", lev:"TMV",  mult:-3, fee:0.88, label:"장기국채 20년+ → TMV (인버스 3배)" },
+  // ── 섹터 ──
+  { base:"XLK", lev:"TECL", mult:3,  fee:0.83, label:"기술주 → TECL (3배)" },
+  { base:"XBI", lev:"LABU", mult:3,  fee:0.92, label:"바이오테크 → LABU (3배)" },
+  // ── 국내 ──
+  { base:"069500", lev:"122630", mult:2,  fee:0.64, label:"🇰🇷 코스피200 → KODEX 레버리지 (2배)", kr:true },
+  { base:"069500", lev:"114800", mult:-1, fee:0.64, label:"🇰🇷 코스피200 → KODEX 인버스 (-1배)", kr:true },
+  { base:"069500", lev:"252670", mult:-2, fee:0.64, label:"🇰🇷 코스피200 → KODEX 200선물인버스2X", kr:true },
+];
+
+let MANIFEST = null, RATES = null;
+const CACHE = new Map();
+async function loadJSON(p){
+  const r = await fetch(p, { cache:"no-store" });
+  if (!r.ok) throw new Error(p + " " + r.status);
+  return r.json();
+}
+async function loadTicker(t){
+  if (CACHE.has(t)) return CACHE.get(t);
+  const j = await loadJSON(`../data/${t}.json`); CACHE.set(t, j); return j;
+}
+
+/* ============================================================
+   이론 레버리지 시뮬레이션
+   ------------------------------------------------------------
+   레버리지 ETF는 '가격'이 아니라 '일간 수익률'을 배수로 추종한다.
+   매일 재조정되므로 경로에 따라 결과가 달라진다(경로 의존).
+   ============================================================ */
+function simLeverage(dates, basePx, mult, feeAnnual, spreadAnnual, rateAt){
+  const v = new Array(dates.length); v[0] = 100;
+  const borrow = Math.abs(mult) - (mult > 0 ? 1 : 0);   // 3배=2 차입, -1배=1(공매도 조달)
+  for (let i = 1; i < dates.length; i++){
+    const ret = (basePx[i] / basePx[i - 1] - 1) * mult;
+    const r = rateAt ? rateAt(dates[i]) : 0;            // 연 % (없으면 0)
+    const cost = feeAnnual / 252 + ((r / 100) + spreadAnnual) * borrow / 252;
+    v[i] = v[i - 1] * (1 + ret - cost);
+    if (v[i] < 0.0001) v[i] = 0.0001;                   // 전액 손실 하한
+  }
+  return v;
+}
+function normalize(px){ const v = new Array(px.length); for (let i = 0; i < px.length; i++) v[i] = px[i] / px[0] * 100; return v; }
+function mddOf(series){ let pk = -Infinity, md = 0; for (const x of series){ if (x > pk) pk = x; const d = (x / pk - 1) * 100; if (d < md) md = d; } return md; }
+function ddSeriesOf(series){ let pk = -Infinity; return series.map(x => { if (x > pk) pk = x; return (x / pk - 1) * 100; }); }
+
+/* ---------------- 개념 표 ---------------- */
+function renderConcept(){
+  const rows = [5, 10, 20, 30, 40, 50].map(x => {
+    const p = x / 100;
+    const cells = [1, 2, 3].map(m => {
+      // 하루 수익률이 -100% 아래로 갈 수 없다(전액 소멸). 클램프하지 않으면 -144% 같은 값이 나온다.
+      const up = Math.max(0, 1 + p * m), down = Math.max(0, 1 - p * m);
+      return up * down - 1;
+    });
+    return { x, cells };
+  });
+  document.getElementById("conceptBody").innerHTML = rows.map(r => `
+    <tr class="${r.x === 30 ? "hl" : ""}">
+      <td class="num">±${r.x}%</td>
+      ${r.cells.map(v => `<td class="num" style="color:${v < -0.30 ? "var(--red)" : v < -0.10 ? "var(--amber)" : "inherit"}">${(v * 100).toFixed(1)}%</td>`).join("")}
+    </tr>`).join("");
+}
+
+/* ---------------- 차트 ---------------- */
+function drawChart(cv, dates, base, theo, actual){
+  const dpr = window.devicePixelRatio || 1, H = 380;
+  const W = cv.clientWidth || cv.parentElement?.clientWidth || 900;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const cs = getComputedStyle(document.documentElement), C = k => cs.getPropertyValue(k).trim();
+  const accent = C("--accent"), red = C("--red"), line = C("--line"), faint = C("--faint"), amber = C("--amber");
+  const padL = 62, padR = 20, padT = 14, padB = 26, eqH = 250;
+  const ddTop = padT + eqH + 22, ddH = H - ddTop - padB, n = dates.length;
+  if (!n) return;
+  const xs = i => padL + (W - padL - padR) * (i / (n - 1 || 1));
+  const all = base.concat(theo, actual).filter(v => v > 0);
+  const lo = Math.max(0.01, Math.min(...all)), hi = Math.max(...all);
+  const lb = Math.log(lo / 1.3), lt = Math.log(hi * 1.3);
+  const ys = v => padT + eqH * (1 - (Math.log(Math.max(v, 0.01)) - lb) / (lt - lb || 1));
+
+  g.font = "11px " + C("--mono"); g.textAlign = "right"; g.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++){
+    const v = Math.exp(lb + (lt - lb) * i / 4), y = ys(v);
+    g.strokeStyle = line; g.lineWidth = 1; g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke();
+    g.fillStyle = faint;
+    g.fillText(v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(v < 10 ? 1 : 0), padL - 8, y);
+  }
+  g.strokeStyle = faint; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(padL, ys(100)); g.lineTo(W - padR, ys(100)); g.stroke(); g.setLineDash([]);
+
+  const draw = (arr, color, width, dash) => {
+    g.strokeStyle = color; g.lineWidth = width; g.lineJoin = "round";
+    if (dash) g.setLineDash(dash);
+    g.beginPath();
+    for (let i = 0; i < n; i++){ const x = xs(i), y = ys(arr[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke(); g.setLineDash([]);
+  };
+  draw(base, faint, 1.4, [4, 3]);
+  draw(theo, amber, 1.6, [6, 3]);
+  draw(actual, accent, 2.0, null);
+
+  const dd = ddSeriesOf(actual), ddMin = Math.min(...dd, -1), dys = v => ddTop + ddH * (v / ddMin);
+  g.strokeStyle = line; g.beginPath(); g.moveTo(padL, ddTop); g.lineTo(W - padR, ddTop); g.stroke();
+  g.fillStyle = red; g.globalAlpha = .28; g.beginPath(); g.moveTo(xs(0), ddTop);
+  for (let i = 0; i < n; i++) g.lineTo(xs(i), dys(dd[i]));
+  g.lineTo(xs(n - 1), ddTop); g.closePath(); g.fill(); g.globalAlpha = 1;
+  g.fillStyle = faint; g.textAlign = "right";
+  g.fillText(ddMin.toFixed(0) + "%", padL - 8, ddTop + ddH); g.fillText("0%", padL - 8, ddTop + 4);
+  g.textAlign = "center"; g.textBaseline = "top";
+  [0, Math.floor(n / 2), n - 1].forEach(i => { if (dates[i]) g.fillText(dates[i].slice(0, 7), xs(i), H - padB + 6); });
+}
+
+/* ---------------- 실행 ---------------- */
+const $ = id => document.getElementById(id);
+const pct = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+
+async function run(){
+  const btn = $("runBtn"), st = $("status");
+  btn.disabled = true; st.className = "status"; st.textContent = "계산 중…";
+  try {
+    const p = PAIRS[+$("pair").value];
+    const [bDoc, lDoc] = await Promise.all([loadTicker(p.base), loadTicker(p.lev)]);
+    const from = $("from").value, to = $("to").value;
+    const bMap = new Map(bDoc.records.filter(x => (!from || x.d >= from) && (!to || x.d <= to)).map(x => [x.d, x.c]));
+    const lMap = new Map(lDoc.records.filter(x => (!from || x.d >= from) && (!to || x.d <= to)).map(x => [x.d, x.c]));
+    const dates = [...bMap.keys()].filter(d => lMap.has(d)).sort();
+    if (dates.length < 60) throw new Error("공통 거래일이 부족합니다 — 기간을 늘려 주십시오");
+
+    const basePx = dates.map(d => bMap.get(d)), levPx = dates.map(d => lMap.get(d));
+    const feeA = Math.max(0, Number($("fee").value) || 0) / 100;
+    const spreadA = Math.max(0, Number($("spread").value) || 0) / 100;
+
+    // 국내는 원화 조달금리를 확보하지 못했다 — 금리 0으로 두고 그 사실을 표기한다
+    const rateAt = p.kr ? null : (d => {
+      const v = RATES?.[d];
+      if (v != null) return v;
+      // 휴장일 등 결측은 직전 값으로 (앞으로 최대 7일 역탐색)
+      const dt = new Date(d + "T00:00:00Z");
+      for (let k = 1; k <= 7; k++){
+        dt.setUTCDate(dt.getUTCDate() - 1);
+        const s = dt.toISOString().slice(0, 10);
+        if (RATES?.[s] != null) return RATES[s];
+      }
+      return 0;
+    });
+
+    const baseN = normalize(basePx);
+    const actualN = normalize(levPx);
+    const theoFull = simLeverage(dates, basePx, p.mult, feeA, spreadA, rateAt);
+    const theoNoFin = simLeverage(dates, basePx, p.mult, feeA, 0, null);   // 차입비용 제외
+    const theoFree = simLeverage(dates, basePx, p.mult, 0, 0, null);       // 비용 전무
+    /* 순진한 기대 = 기초 총수익률 × 배수. 사람들이 흔히 착각하는 값이다.
+       단 실제 상품은 0 아래로 내려갈 수 없으므로, 이 값이 음수면 '기대 자체가 불가능'한 경우다. */
+    const naiveRaw = 100 + (baseN[baseN.length - 1] - 100) * p.mult;
+    const naive = Math.max(0, naiveRaw);
+    const naiveImpossible = naiveRaw < 0;
+
+    const last = a => a[a.length - 1];
+    const ret = v => v - 100;
+
+    // ── KPI
+    /* 인버스 상품 등은 값이 0에 수렴한다. 이때 비율 오차는 0/0에 가까워 무의미하므로
+       '둘 다 사실상 전액 손실'로 처리하고 % 오차를 쓰지 않는다. */
+    const wiped = last(actualN) < 1 && last(theoFull) < 1;
+    const gap = wiped ? 0 : (last(theoFull) / last(actualN) - 1) * 100;
+    /* 일일 재조정은 양날의 검이다.
+       한 방향 추세가 강하면 복리가 가속돼 '배수 × 총수익률'보다 더 벌고(이득),
+       등락이 반복되면 깎인다(변동성 끌림). 한쪽만 있다고 쓰면 거짓이 된다. */
+    const rebalEffect = last(theoFree) - naive;       // 양수=복리 가속, 음수=변동성 끌림
+    const isDrag = rebalEffect < 0;
+    /* 상품이 사실상 소멸했다면 '가속/끌림' 어느 쪽으로도 부를 수 없다 —
+       기대값이 애초에 성립하지 않는 구간이기 때문이다. */
+    const noLabel = naiveImpossible || last(theoFree) < 1;
+    const items = [
+      ["기초지수", pct(ret(last(baseN))), ret(last(baseN)) >= 0 ? "pos" : "neg", `${p.base} 1배`],
+      ["순진한 기대", naiveImpossible ? "−100% (전액 손실)" : pct(ret(naive)), "",
+        naiveImpossible ? `산술상 ${pct(ret(naiveRaw))} — 실제로는 0이 하한` : `기초 수익률 × ${p.mult}배`],
+      ["실제 ETF", pct(ret(last(actualN))), ret(last(actualN)) >= 0 ? "pos" : "neg", p.lev],
+      ["기대 대비 차이", pct(ret(last(actualN)) - ret(naive)), ret(last(actualN)) - ret(naive) >= 0 ? "pos" : "neg", "실제 − 순진한 기대"],
+      [noLabel ? "일일 재조정 효과" : (isDrag ? "변동성 끌림" : "복리 가속"),
+        noLabel ? "—" : (rebalEffect >= 0 ? "+" : "") + rebalEffect.toFixed(0) + "p",
+        noLabel ? "" : (isDrag ? "neg" : "pos"),
+        noLabel ? "전액 손실 구간 — 비교 불가"
+                : (isDrag ? "등락 반복이 깎은 몫" : "추세가 복리로 더 번 몫")],
+      ["실제 ETF 최대낙폭", mddOf(actualN).toFixed(1) + "%", "neg", `기초 ${mddOf(baseN).toFixed(1)}%`],
+      ["이론 vs 실제 오차", wiped ? "—" : pct(gap), wiped ? "" : (Math.abs(gap) < 10 ? "pos" : "warn"),
+        wiped ? "양쪽 모두 사실상 전액 손실" : "작을수록 모델이 정확"],
+      ["기간", (dates.length / 252).toFixed(1) + "년", "", `${dates.length.toLocaleString()} 거래일`],
+    ];
+    $("kpis").innerHTML = items.map(([k, v, c, s]) =>
+      `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join("");
+
+    // ── 손실 분해 사다리
+    const steps = [
+      ["순진한 기대 (기초 총수익률 × 배수)", naive, null],
+      ["① 매일 재조정 반영", last(theoFree), noLabel ? "재조정 효과" : (isDrag ? "변동성 끌림" : "복리 가속")],
+      ["② 운용보수 차감", last(theoNoFin), "운용보수"],
+      ["③ 차입금리 + 스프레드 차감", last(theoFull), p.kr ? "차입비용(미반영)" : "차입비용"],
+      ["④ 실제 ETF", last(actualN), "추적오차·기타"],
+    ];
+    $("ladderBody").innerHTML = steps.map((s, i) => {
+      const prev = i ? steps[i - 1][1] : null;
+      const delta = prev == null ? null : s[1] - prev;
+      return `<tr class="${i === steps.length - 1 ? "hl" : ""}">
+        <td>${s[0]}</td>
+        <td class="num">${s[1].toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+        <td class="num">${pct(ret(s[1]))}</td>
+        <td class="num" style="color:${delta == null ? "inherit" : delta < 0 ? "var(--red)" : "var(--accent)"}">${
+          delta == null ? "—" : (delta >= 0 ? "+" : "") + delta.toFixed(0) + " (" + s[2] + ")"}</td>
+      </tr>`;
+    }).join("");
+
+    // ── 해석 문구
+    const finCost = last(theoNoFin) - last(theoFull);
+    const feeCost = last(theoFree) - last(theoNoFin);
+    const dn = $("decompNote"), dt = $("decompText");
+    let txt = `기초지수가 ${pct(ret(last(baseN)))} 움직였으니 ${p.mult}배라면 `
+      + `${pct(ret(naive))}를 기대하기 쉽습니다. 하지만 레버리지는 <strong>가격이 아니라 일간 수익률</strong>을 `
+      + `배수로 따라가며 매일 재조정되므로, 비용이 0이어도 결과가 달라집니다 — `
+      + (noLabel
+          ? `다만 이 구간에서는 상품이 <strong>사실상 전액 손실</strong>로 끝나, 기대값과의 비교가 성립하지 않습니다. `
+            + `배수가 반대 방향으로 걸린 상품을 장기 보유하면 이렇게 됩니다. `
+          : isDrag
+            ? `이 구간에서는 <strong>${Math.abs(rebalEffect).toFixed(0)}p 깎였습니다(변동성 끌림)</strong>. `
+              + `등락이 반복되면 곱셈이 누적되며 원금이 줄어듭니다. `
+            : `이 구간에서는 오히려 <strong>${rebalEffect.toFixed(0)}p 더 벌었습니다(복리 가속)</strong>. `
+              + `한 방향 추세가 강하면 매일 재조정이 복리로 유리하게 작용합니다 — `
+              + `<strong>끌림은 항상 손해가 아니라, 횡보·급등락 구간에서 나타나는 현상</strong>입니다. `);
+    if (p.kr){
+      txt += `여기에 운용보수가 ${feeCost.toFixed(0)}p를 더 깎았습니다. `
+        + `<strong>국내 상품은 원화 조달금리 데이터를 확보하지 못해 차입비용을 반영하지 못했습니다</strong> — `
+        + `따라서 이론값은 실제보다 높게 나옵니다.`;
+    } else {
+      txt += `운용보수가 ${feeCost.toFixed(0)}p, <strong>차입금리가 ${finCost.toFixed(0)}p</strong>를 추가로 깎았습니다. `
+        + (finCost > feeCost * 1.5
+            ? `<strong>차입비용이 운용보수보다 훨씬 큽니다</strong> — 레버리지 백테스트에서 이걸 빼면 결과가 크게 부풀려집니다.`
+            : `금리가 낮았던 구간이라 차입비용 비중이 상대적으로 작습니다 — 고금리 구간을 넣어 다시 확인해 보십시오.`);
+    }
+    // 기초가 크게 올랐는데 레버리지가 오히려 뒤처졌다면 반드시 짚어준다
+    const baseRet = ret(last(baseN)), actRet = ret(last(actualN));
+    if (p.mult > 1 && baseRet > 0 && actRet < baseRet){
+      txt += ` <br><br><strong>⚠️ 이 구간에서는 ${p.mult}배 상품이 기초지수(${pct(baseRet)})보다도 못했습니다`
+        + ` — ${pct(actRet)}.</strong> 배수를 키운다고 수익이 커지지 않습니다. `
+        + `변동성이 큰 기초자산일수록 끌림이 배수의 제곱에 가깝게 작용하기 때문입니다.`;
+      dn.className = "note risk";
+    } else dn.className = "note";
+    dt.innerHTML = txt;
+
+    // ── 모델 적합도
+    const fn = $("fitNote"), ft = $("fitText");
+    const ag = Math.abs(gap);
+    const fmtV = v => v < 1 ? v.toFixed(2) : v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    if (wiped){
+      fn.className = "note risk";
+      ft.innerHTML = `이론값 ${fmtV(last(theoFull))} vs 실제 ${fmtV(last(actualN))} — `
+        + `<strong>양쪽 모두 원금의 99% 이상을 잃었습니다.</strong> `
+        + `이 구간에서 이 상품은 사실상 소멸했습니다. 값이 0에 수렴해 비율 오차는 의미가 없으므로 표시하지 않습니다. `
+        + `장기 보유 시 인버스·고배수 상품이 어떻게 되는지 보여주는 사례입니다.`;
+    } else {
+      fn.className = ag < 10 ? "note good" : ag < 25 ? "note" : "note risk";
+      ft.innerHTML = `이론값 ${fmtV(last(theoFull))} vs 실제 ${fmtV(last(actualN))} — 오차 <strong>${pct(gap)}</strong>. `
+        + (ag < 10 ? "모델이 실제를 잘 재현합니다. 남은 오차는 스왑 스프레드·리밸런싱 체결오차·배당 처리 차이입니다."
+           : ag < 25 ? "대체로 재현하나 오차가 있습니다. 운용보수·스프레드를 조정하면 더 맞출 수 있습니다."
+           : "<strong>오차가 큽니다.</strong> 운용보수·스프레드 가정이 이 상품·구간과 맞지 않거나, 상품 구조가 단순 배수 추종과 다를 수 있습니다.")
+        + (p.kr ? " <strong>국내는 차입비용 미반영이라 이론값이 과대평가됩니다.</strong>" : "");
+    }
+
+    renderConcept();
+    $("assumpBody").textContent = [
+      `비교        ${p.label}`,
+      `기초 / 대상 ${p.base} (${bDoc.name}) / ${p.lev} (${lDoc.name})`,
+      `배수        ${p.mult}배  (차입 ${Math.abs(p.mult) - (p.mult > 0 ? 1 : 0)}배분)`,
+      `기간        ${dates[0]} ~ ${dates[dates.length - 1]}  (${dates.length} 거래일, 양쪽 공통일만)`,
+      `운용보수    연 ${(feeA * 100).toFixed(2)}%  (사용자 입력, 상품 공시치와 다를 수 있음)`,
+      `차입금리    ${p.kr ? "⚠️ 미반영 — 국내 원화 조달금리 데이터 미확보"
+                         : `^IRX(미국 13주 국채수익률) + 스프레드 ${(spreadA * 100).toFixed(2)}%`}`,
+      `금리 출처   ${p.kr ? "-" : "Yahoo chart API / 레버리지 실제 조달금리(SOFR+스프레드)의 대리지표"}`,
+      `가격 기준   ${bDoc.market === "KR" ? "액면분할만 반영(배당 미반영)" : "수정주가(배당·분할 반영)"}`,
+      `미반영      매매 수수료·세금·호가 스프레드 (이 도구는 보유만 가정)`,
+      `엔진        simLeverage() / 일간 재조정 순차 루프`,
+    ].join("\n");
+
+    $("results").classList.remove("hidden");
+    drawChart($("chart"), dates, baseN, theoFull, actualN);
+    window.__ch = { dates, baseN, theoFull, actualN };
+    st.textContent = `완료 — ${dates.length.toLocaleString()} 거래일 · 오차 ${pct(gap)}`;
+  } catch (err){
+    st.className = "status err"; st.textContent = "오류: " + err.message;
+  } finally { btn.disabled = false; }
+}
+
+$("runBtn").addEventListener("click", run);
+$("pair").addEventListener("change", () => {
+  const p = PAIRS[+$("pair").value];
+  $("fee").value = p.fee;
+  $("spread").value = p.kr ? 0 : 0.5;
+  $("spread").disabled = !!p.kr;
+});
+$("to").value = new Date().toISOString().slice(0, 10);
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => {
+  const c = window.__ch; if (c) drawChart($("chart"), c.dates, c.baseN, c.theoFull, c.actualN); }, 150); });
+
+(async function init(){
+  const st = $("status");
+  renderConcept();
+  try {
+    MANIFEST = await loadJSON("../data/manifest.json");
+    const have = new Set(MANIFEST.tickers.map(t => t.ticker));
+    const usable = PAIRS.map((p, i) => ({ p, i })).filter(x => have.has(x.p.base) && have.has(x.p.lev));
+    if (!usable.length) throw new Error("비교 가능한 쌍이 없습니다");
+    $("pair").innerHTML = usable.map(x => `<option value="${x.i}">${x.p.label}</option>`).join("");
+    try { RATES = (await loadJSON("../data/_rates.json")).series?.irx?.values || null; } catch(e){ RATES = null; }
+    const p0 = PAIRS[+$("pair").value];
+    $("fee").value = p0.fee; $("spread").value = p0.kr ? 0 : 0.5; $("spread").disabled = !!p0.kr;
+    $("runBtn").disabled = false;
+    st.textContent = `준비 완료 — ${usable.length}개 쌍` + (RATES ? " · 금리 데이터 연결됨" : " · ⚠️ 금리 데이터 없음");
+    $("dataStamp").textContent = `데이터 생성 ${MANIFEST.generated_at?.slice(0, 10) || "-"}`;
+  } catch (err){
+    st.className = "status err";
+    st.textContent = "데이터를 불러오지 못했습니다 — 웹서버(GitHub Pages)에서 열어주십시오.";
+  }
+})();
+</script>
+</body>
+</html>
