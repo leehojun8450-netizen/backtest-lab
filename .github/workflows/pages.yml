@@ -1,0 +1,40 @@
+# GitHub Pages 배포 — Actions 방식 (2026-08-06 전환)
+#
+# 왜 legacy Jekyll 빌드를 버렸나:
+#   513종목 확장(218MB) 후 legacy 빌더가 실패(errored)하거나 40분+ 멈췄다.
+#   이 사이트는 정적 파일 그대로라 Jekyll 처리가 애초에 필요 없다.
+#   Actions 방식은 아티팩트를 그대로 CDN에 올리므로 빌드가 수 분에 끝난다.
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          # 218MB 사이트 — 기본 10분 타임아웃으로는 배포 단계가 끝나지 않는다 (실측 실패)
+          timeout: 3000000
+          error_count: 30
+          reporting_interval: 15000
